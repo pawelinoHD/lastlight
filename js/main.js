@@ -104,8 +104,14 @@
   G.inputLocked = () => document.pointerLockElement === canvas;
   G.releasePointer = () => { if (document.pointerLockElement) document.exitPointerLock(); };
   G.lockPointer = () => {
-    try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => { if (G.state === 'play' && !LL.UI.panel) showPause(true); }); }
-    catch (e) { showPause(true); }
+    const fail = () => { if (G.state === 'play' && !LL.UI.panel) showPause(true); };
+    const plain = () => { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(fail); } catch (e) { fail(); } };
+    // Raw mouse input avoids Chrome's accelerated deltas, which can jump wildly on Windows.
+    try {
+      const p = canvas.requestPointerLock({ unadjustedMovement: true });
+      if (p && p.catch) p.catch(err => { if (err && err.name === 'NotSupportedError') plain(); else fail(); });
+    } catch (e) { plain(); }
+    G.mouseSkip = 2;
   };
   G.closePanels = (relock) => {
     if (!LL.UI.panel) return;
@@ -636,8 +642,14 @@
   document.addEventListener('contextmenu', e => e.preventDefault());
   document.addEventListener('mousemove', e => {
     if (!G.inputLocked() || !G.player) return;
+    // Drop the first events after locking (they carry the cursor's jump to the centre)
+    // and single-event spikes far larger than the movement just before them.
+    if (G.mouseSkip > 0) { G.mouseSkip--; return; }
+    const mx = e.movementX, my = e.movementY, mag = Math.abs(mx) + Math.abs(my), prev = G.lastMouseMag || 0;
+    G.lastMouseMag = mag;
+    if (mag > 220 && mag > prev * 6 + 60) return;
     const s = 0.0022 * G.settings.sens;
-    G.player.yaw -= e.movementX * s; G.player.pitch -= e.movementY * s;
+    G.player.yaw -= mx * s; G.player.pitch -= my * s;
     G.player.pitch = Math.max(-1.55, Math.min(1.55, G.player.pitch));
   });
   document.addEventListener('wheel', e => {

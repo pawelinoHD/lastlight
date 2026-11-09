@@ -20,7 +20,12 @@ if (!cf) {
 const server = spawn(process.execPath, [path.join(here, 'server.js'), String(PORT), ...process.argv.slice(2)], { cwd: here, stdio: ['ignore', 'pipe', 'inherit'] });
 server.stdout.on('data', d => process.stdout.write(String(d).replace(/^/gm, '  [server] ')));
 
-const tunnel = spawn(cf, ['tunnel', '--no-autoupdate', '--url', 'http://localhost:' + PORT], { cwd: here });
+// Use our own empty config: otherwise cloudflared also loads ~/.cloudflared/config.yml, and that file's
+// ingress rules (usually ending in "http_status:404") would answer every request with a 404.
+const quickCfg = path.join(here, 'tools', 'quick-tunnel.yml');
+fs.mkdirSync(path.dirname(quickCfg), { recursive: true });
+fs.writeFileSync(quickCfg, '# Lastlight quick tunnel: no ingress rules, so --url is used for everything.\nno-autoupdate: true\n');
+const tunnel = spawn(cf, ['tunnel', '--config', quickCfg, '--no-autoupdate', '--url', 'http://localhost:' + PORT], { cwd: here });
 let shown = false;
 const scan = d => {
   const m = String(d).match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
