@@ -115,7 +115,7 @@
   };
   G.closePanels = (relock) => {
     if (!LL.UI.panel) return;
-    LL.UI.panel = null; $('invpanel').classList.add('hidden'); $('journal').classList.add('hidden');
+    LL.UI.panel = null; $('invpanel').classList.add('hidden'); $('journal').classList.add('hidden'); $('tradepanel').classList.add('hidden');
     LL.UI.returnCursor(); LL.UI.tip(null);
     if (relock) G.lockPointer();
   };
@@ -138,12 +138,103 @@
     G.xp = o.xp || 0; G.level = o.level || 1; G.perks = o.perks || {}; G.pendingPerks = o.pendingPerks || 0;
     G.bounties = o.bounties || null; G.bountyDay = o.bountyDay || 0; G.feats = o.feats || {}; G.known = o.known || {};
     G.chests = o.chests || {}; G.crops = o.crops || {}; G.opened = o.opened || {}; G.wards = o.wards || {};
+    G.sunwellUsed = o.sunwellUsed || {}; G.blessLeft = o.blessLeft || 0;
     G.secondDay = o.secondDay || 0; G.umbralActive = !!o.umbralActive; G.umbralDied = !!o.umbralDied;
     const st = Object.assign({ gloom: 0, mined: 0, placed: 0 }, o.stats || G.stats || {});
     G.stats = Object.assign({ caches: 0, harvest: 0, planted: 0, bounties: 0, umbral: 0, nights: 0, minY: 999, biomes: {}, kills: {}, seen: {} }, st);
   }
   const ORE_XP = { 23: 2, 22: 4, 24: 8, 25: 3, 40: 12, 44: 12 };
-  const KILL_XP = { gloomling: 6, crawler: 8, wisp: 10, brute: 30, buck: 3, maw: 300 };
+  const KILL_XP = { gloomling: 6, crawler: 8, wisp: 10, brute: 30, buck: 3, maw: 300, boar: 6, lurker: 10, beetle: 6, wraith: 10, moth: 2, sporekin: 2, skyray: 6 };
+
+  // ---------- structures: traders, anvils, sunwells, rifts ----------
+  const TRADES = [
+    [[112, 10], [103, 1]], [[111, 4], [106, 2]], [[120, 2], [105, 1]], [[4, 24], [26, 4]], [[151, 8], [152, 3]],
+    [[101, 8], [22, 3]], [[159, 3], [57, 1]], [[102, 10], [118, 1]], [[158, 4], [53, 1]], [[113, 4], [114, 4]],
+    [[19, 16], [76, 8]], [[106, 3], [150, 8]], [[70, 16], [74, 16]], [[103, 4], 'bp'], [[110, 4], [73, 16]],
+  ];
+  G.tradeOffers = (stall) => {
+    const rng = LL.mulberry32(LL.chash(stall.x * 7 + G.day, stall.z, G.seed));
+    const pool = TRADES.filter(t => t[1] !== 'bp' || LL.BLUEPRINTS.some(([bp, o]) => !G.known[o]));
+    const out = [];
+    while (out.length < 5 && pool.length) out.push(pool.splice(rng() * pool.length | 0, 1)[0]);
+    return out;
+  };
+  G.openTrade = (stall) => {
+    if (!stall) return;
+    LL.UI.openTrade(G.tradeOffers(stall), (give, get) => {
+      const inv = G.player.inv;
+      if (inv.count(give[0]) < give[1]) { G.toast('You need ' + give[1] + ' ' + LL.itemName(give[0]) + '.', 'warn'); return false; }
+      let gid = get, gn = 1;
+      if (get === 'bp') { const unk = LL.BLUEPRINTS.filter(([bp, o]) => !G.known[o] && !inv.has(bp)); if (!unk.length) { G.toast('"I have nothing new to show you."'); return false; } gid = unk[Math.random() * unk.length | 0][0]; }
+      else { gid = get[0]; gn = get[1]; }
+      inv.take(give[0], give[1]);
+      const left = inv.add(gid, gn); if (left) G.spawnDrop(gid, left, G.player.pos.x, G.player.pos.y + 1, G.player.pos.z);
+      LL.sfx.craft(); G.onPickup(gid, gn); Prog.addXP(G, 3, 'trade'); G.stats.trades = (G.stats.trades || 0) + 1; Prog.bountyEvent(G, 'trade', 'any', 1);
+      G.toast('Traded for ' + gn + ' ' + LL.itemName(gid) + '.', 'good');
+      return true;
+    });
+  };
+  G.repairAt = (h) => {
+    const tool = h && LL.toolOf(h.id);
+    if (!tool || h.dur == null) { G.toast('Hold a worn tool or blade, then use the anvil.'); return; }
+    if (h.dur >= tool.dur) { G.toast('That ' + LL.itemName(h.id) + ' is already in perfect shape.'); return; }
+    const mat = h.id === I.LUMITE_BLADE ? I.LUMITE_SHARD : LL.TIERS[tool.tier - 1].mat;
+    const inv = G.player.inv;
+    if (inv.count(mat) < 1) { G.toast('Repairing needs 1 ' + (typeof mat === 'string' ? LL.GROUP_NAME[mat] : LL.itemName(mat)) + '.', 'warn'); return; }
+    inv.take(mat, 1);
+    h.dur = Math.min(tool.dur, h.dur + Math.ceil(tool.dur * 0.5));
+    LL.sfx.hit(1.6); LL.sfx.place(79);
+    const P = G.player; G.particles.burst(P.pos.x, P.pos.y + 1.2, P.pos.z, [255, 170, 60], 20, 3);
+    G.toast('The ' + LL.itemName(h.id) + ' is restored (' + h.dur + '/' + tool.dur + ').', 'good');
+    G.stats.repairs = (G.stats.repairs || 0) + 1;
+    LL.UI.refresh();
+  };
+  G.useSunwell = (t) => {
+    const key = t.x + ',' + t.y + ',' + t.z;
+    if (G.sunwellUsed[key] === G.day) { G.toast('The Sunwell is resting. Come back tomorrow.'); return; }
+    G.sunwellUsed[key] = G.day; G.blessLeft = 360;
+    const P = G.player; P.warmth = 100; P.heal(6);
+    LL.sfx.kindle(); G.particles.burst(t.x + 0.5, t.y + 1.2, t.z + 0.5, [255, 230, 140], 50, 4, -0.3);
+    LL.UI.banner('Sunwell Blessing', 'No cold can touch you for six minutes');
+    G.stats.blessings = (G.stats.blessings || 0) + 1;
+    Prog.addXP(G, 15, 'sunwell');
+  };
+  let structT = 0;
+  function structureTick(dt) {
+    structT -= dt; if (structT > 0) return; structT = 3;
+    const gen = G.world.gen; if (!gen.ruinAt || G.dimKey !== 'wild') { G.nearNests = []; return; }
+    const P = G.player, pcx = Math.floor(P.pos.x) >> 4, pcz = Math.floor(P.pos.z) >> 4;
+    G.nearNests = [];
+    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+      const ru = gen.ruinAt(pcx + dx, pcz + dz); if (!ru) continue;
+      if (ru.type === 'village' && G.world.getBlock(ru.stall.x, ru.stall.y, ru.stall.z) === B.TRADE_STALL) {
+        const s = ru.stall;
+        if (!G.mobs.some(m => m.type === 'keeper' && Math.abs(m.pos.x - s.x) < 14 && Math.abs(m.pos.z - s.z) < 14)) {
+          const k = G.spawnMob('keeper', s.x + 0.5, s.y, s.z + 1.5); k.stall = s; k.yaw = 0;
+        }
+      }
+      if (ru.type === 'nest' && G.world.getBlock(ru.rift.x, ru.rift.y, ru.rift.z) === B.GLOOM_RIFT) G.nearNests.push(ru.rift);
+    }
+  }
+  function riftSpawns() {
+    const P = G.player;
+    for (const r of G.nearNests || []) {
+      const d = Math.hypot(r.x - P.pos.x, r.z - P.pos.z); if (d > 30) continue;
+      if (Math.random() < 0.5) G.particles.add(r.x + 0.5, r.y + 1, r.z + 0.5, (Math.random() - 0.5), 1.5, (Math.random() - 0.5), [150, 60, 230], 1.2, -0.1);
+      const near = G.mobs.filter(m => m.type === 'gloomling' && Math.abs(m.pos.x - r.x) < 12 && Math.abs(m.pos.z - r.z) < 12).length;
+      if (near >= 3 || Math.random() > 0.35) continue;
+      for (let k = 0; k < 6; k++) {
+        const x = r.x + Math.round((Math.random() - 0.5) * 7), z = r.z + Math.round((Math.random() - 0.5) * 7);
+        if (x === r.x && z === r.z) continue;
+        let y = -1;
+        for (let yy = r.y + 5; yy >= r.y - 1; yy--) if (LL.SOLID[G.world.getBlock(x, yy - 1, z)] && !LL.boxBlocked(G.world, x + 0.5, yy, z + 0.5, 0.3, 1.9)) { y = yy; break; }
+        if (y < 0) continue;
+        const m = G.spawnMob('gloomling', x + 0.5, y, z + 0.5); m.shield = 25;
+        G.particles.burst(x + 0.5, y + 1, z + 0.5, [60, 20, 90], 14, 2); LL.sfx.hit(0.4);
+        break;
+      }
+    }
+  }
   G.onKill = type => {
     G.stats.kills[type] = (G.stats.kills[type] || 0) + 1;
     Prog.addXP(G, KILL_XP[type] || 0, 'kill');
@@ -230,6 +321,13 @@
     if (id === B.CHEST) {
       const c = G.chests[G.dimKey], key = x + ',' + y + ',' + z;
       if (c && c[key]) { for (const st of c[key]) if (st) G.spawnDrop(st.id, st.n, x + 0.5, y + 0.5, z + 0.5, st.dur); delete c[key]; if (G.mp) Net.send({ t: 'chest', dim: G.dimKey, key, slots: null }); }
+    }
+    if (id === B.GLOOM_RIFT) {
+      G.spawnDrop(I.DUSK_PEARL, 2 + (Math.random() * 2 | 0), x + 0.5, y + 0.5, z + 0.5);
+      if (Math.random() < 0.5) G.spawnDrop(I.GLOOM_HEART, 1, x + 0.5, y + 0.5, z + 0.5);
+      G.particles.burst(x + 0.5, y + 0.5, z + 0.5, [150, 60, 230], 60, 6); LL.sfx.roar();
+      G.toast('The rift collapses! Something was buried beneath it.', 'good');
+      G.stats.rifts = (G.stats.rifts || 0) + 1; Prog.addXP(G, 40, 'rift'); Prog.bountyEvent(G, 'rift', 'rift', 1);
     }
     if (id === B.WARD && G.wards[G.dimKey]) G.wards[G.dimKey] = G.wards[G.dimKey].filter(w => !(w.x === x && w.y === y && w.z === z));
   };
@@ -478,7 +576,7 @@
       inv: P.inv.toJSON(), phase: G.phase, day: G.day, flags: G.flags, stats: G.stats, hearth: G.hearth, ret: G.ret, spawn: G.spawn,
       edits: G.edits, arrivals: G.arrivals, altarKindled: G.altarKindled,
       equip: P.equip, xp: G.xp, level: G.level, perks: G.perks, pendingPerks: G.pendingPerks, bounties: G.bounties, bountyDay: G.bountyDay, feats: G.feats, known: G.known,
-      chests: G.chests, crops: G.crops, opened: G.opened, wards: G.wards, secondDay: G.secondDay, umbralActive: G.umbralActive, umbralDied: G.umbralDied,
+      chests: G.chests, crops: G.crops, opened: G.opened, wards: G.wards, sunwellUsed: G.sunwellUsed, blessLeft: G.blessLeft, secondDay: G.secondDay, umbralActive: G.umbralActive, umbralDied: G.umbralDied,
     };
     if (!store.set(SAVE_KEY, JSON.stringify(data))) G.toast('Could not save (storage full or blocked).', 'warn');
   }
@@ -488,7 +586,7 @@
     return {
       dim: G.dimKey, pos: [P.pos.x, P.pos.y, P.pos.z], yaw: P.yaw, pitch: P.pitch, vigor: P.vigor, warmth: P.warmth, inv: P.inv.toJSON(), equip: P.equip,
       flags: G.flags, stats: G.stats, hearth: G.hearth, ret: G.ret, spawn: G.spawn, arrivals: G.arrivals, altarKindled: G.altarKindled,
-      xp: G.xp, level: G.level, perks: G.perks, pendingPerks: G.pendingPerks, bounties: G.bounties, bountyDay: G.bountyDay, feats: G.feats, known: G.known, secondDay: G.secondDay, umbralDied: G.umbralDied,
+      xp: G.xp, level: G.level, perks: G.perks, pendingPerks: G.pendingPerks, bounties: G.bounties, bountyDay: G.bountyDay, feats: G.feats, known: G.known, secondDay: G.secondDay, umbralDied: G.umbralDied, sunwellUsed: G.sunwellUsed, blessLeft: G.blessLeft,
     };
   }
   async function startMP(url, name) {
@@ -613,7 +711,7 @@
     if (e.target && e.target.tagName === 'INPUT') return;
     const k = KEYMAP[e.code]; if (k) { G.inp[k] = 1; if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) G.inp.jumpPressed = true; } }
     const P = G.player;
-    if (e.code === 'KeyE') { if (LL.UI.panel === 'inv') G.closePanels(true); else if (!G.paused && !P.dead) LL.UI.openInventory(); }
+    if (e.code === 'KeyE') { if (LL.UI.panel === 'inv' || LL.UI.panel === 'trade') G.closePanels(true); else if (!G.paused && !P.dead) LL.UI.openInventory(); }
     if (e.code === 'KeyP' && !G.paused && !P.dead && G.pendingPerks) Prog.offerPerk(G);
     if (G.mp && (e.code === 'KeyT' || e.code === 'Enter') && !LL.UI.panel && !Net.chatOpen) { e.preventDefault(); G.inp.f = G.inp.b = G.inp.l = G.inp.r = G.inp.jump = 0; Net.openChat(); }
     if (G.mp && e.code === 'Tab') { e.preventDefault(); Net.renderList(true); }
@@ -753,12 +851,13 @@
     if (rate < 0 && P.inv.has(I.COAT)) rate *= 0.5;
     if (rate < 0 && P.inv.has(I.HEATSTONE)) rate *= 0.6;
     if (rate < 0) rate *= 1 - 0.2 * Prog.perk(G, 'fire');
+    if (G.blessLeft > 0) { G.blessLeft -= dt; if (rate < 0.6) rate = 0.6; if (G.blessLeft <= 0) G.toast('The Sunwell\'s blessing fades.'); }
     G.warmRate = rate;
     P.warmth = Math.max(0, Math.min(100, P.warmth + rate * dt));
     G.coldT = (G.coldT || 0) + dt;
     if (P.warmth <= 0 && G.coldT > 4) { G.coldT = 0; P.hurt(1, null, 'the cold', 0); if (!G.coldHint) { G.coldHint = true; G.toast('You are freezing. Find fire, or eat Emberberries.', 'warn'); } }
     G.regenT = (G.regenT || 0) + dt;
-    if (G.regenT > 5 / (1 + 0.6 * Prog.perk(G, 'kindled'))) { G.regenT = 0; if (P.warmth > 55 && P.lastHurt > 6 && P.vigor < P.maxVigor) P.heal(nearHearth ? 2 : 1); }
+    if (G.regenT > 5 / (1 + 0.6 * Prog.perk(G, 'kindled')) / (G.blessLeft > 0 ? 2 : 1)) { G.regenT = 0; if (P.warmth > 55 && P.lastHurt > 6 && P.vigor < P.maxVigor) P.heal(nearHearth ? 2 : 1); }
   }
 
   // ---------- spawning ----------
@@ -774,9 +873,14 @@
     const a = Math.random() * Math.PI * 2, r = 18 + Math.random() * 24;
     const x = Math.floor(P.pos.x + Math.cos(a) * r), z = Math.floor(P.pos.z + Math.sin(a) * r);
     if (!w.isLoaded(x, z)) return;
+    const count = t => G.mobs.filter(m => m.type === t).length;
     if (G.dimKey === 'sky') {
+      if (count('skyray') < 3 && Math.random() < 0.12) { const y = P.pos.y - 4 + Math.random() * 14; if (!LL.boxBlocked(w, x + 0.5, y, z + 0.5, 0.8, 0.6)) G.spawnMob('skyray', x + 0.5, y, z + 0.5); }
       if (hostiles < 4 && !G.boss && Math.random() < 0.25) { const y = P.pos.y + 4 + Math.random() * 6; if (!LL.boxBlocked(w, x + 0.5, y, z + 0.5, 0.4, 1)) G.spawnMob('wisp', x + 0.5, y, z + 0.5); }
       return;
+    }
+    if (G.dimKey === 'wild' && w.biomeAt(x, z) === BIO.MIRE && count('lurker') < 3 && Math.random() < 0.3) {
+      for (let yy = Math.floor(P.pos.y) + 8; yy > P.pos.y - 14; yy--) if (LL.RT[w.getBlock(x, yy, z)] === 4 && !w.getBlock(x, yy + 1, z)) { G.spawnMob('lurker', x + 0.5, yy - 0.2, z + 0.5); break; }
     }
     // find standable spot in vertical window
     const startY = Math.floor(P.pos.y) + (Math.random() < 0.5 ? 14 : 4);
@@ -789,8 +893,15 @@
     let cap = G.flags.victory ? 3 : 7 + Math.min(4, Math.floor(G.day / 3));
     if (G.umbralActive) cap = Math.round(cap * 1.8) + 2;
     const warded = !!G.nearWard({ x: x + 0.5, y, z: z + 0.5 }, 20);
+    const bio = G.dimKey === 'wild' ? w.biomeAt(x, z) : -1;
+    const below0 = w.getBlock(x, y - 1, z);
     if (G.dimKey === 'wild') {
-      if (light < (G.umbralActive ? 7 : 5) && hostiles < cap && !warded) {
+      if (bio === BIO.ASH && (below0 === B.ASH || below0 === B.BASALT) && count('beetle') < 4 && Math.random() < 0.3) G.spawnMob('beetle', x + 0.5, y, z + 0.5);
+      if (G.daylight < 0.4 && light < 8 && count('moth') < 5 && Math.random() < 0.25) G.spawnMob('moth', x + 0.5, y + 2 + Math.random() * 2, z + 0.5);
+    }
+    if (G.dimKey === 'wild') {
+      if (light < (G.umbralActive ? 7 : 5) && hostiles < cap && !warded && bio === BIO.PINE && G.daylight < 0.5 && Math.random() < 0.35 && count('wraith') < 3) G.spawnMob('wraith', x + 0.5, y + 2, z + 0.5);
+      else if (light < (G.umbralActive ? 7 : 5) && hostiles < cap && !warded) {
         if (G.flags.victory && y > 30 && !G.umbralActive) return;
         const bruteChance = G.umbralActive ? 0.3 : (G.day >= 5 && G.daylight < 0.5 ? 0.07 : 0);
         if (Math.random() < bruteChance && G.mobs.filter(m => m.type === 'brute').length < 3) { G.spawnMob('brute', x + 0.5, y, z + 0.5); }
@@ -801,11 +912,13 @@
         const passive = G.mobs.filter(m => m.def.passive).length;
         if (passive < 6 && (below === B.TURF || below === B.SNOWY_TURF || below === B.MIRE_TURF)) {
           const n = 1 + (Math.random() * 3 | 0);
-          for (let i = 0; i < n; i++) G.spawnMob('buck', x + 0.5 + Math.random(), y, z + 0.5 + Math.random());
+          const kind = (bio === BIO.MEADOW || bio === BIO.ROSE) && Math.random() < 0.35 && count('boar') < 4 ? 'boar' : 'buck';
+          for (let i = 0; i < (kind === 'boar' ? Math.min(n, 2) : n); i++) G.spawnMob(kind, x + 0.5 + Math.random(), y, z + 0.5 + Math.random());
         }
       }
     } else if (G.dimKey === 'gloam') {
-      if (light < 9 && hostiles < cap && !warded) G.spawnMob(Math.random() < 0.6 ? 'crawler' : 'gloomling', x + 0.5, y, z + 0.5);
+      if (below0 === B.MYCEL && count('sporekin') < 5 && Math.random() < 0.25) G.spawnMob('sporekin', x + 0.5, y, z + 0.5);
+      else if (light < 9 && hostiles < cap && !warded) G.spawnMob(Math.random() < 0.6 ? 'crawler' : 'gloomling', x + 0.5, y, z + 0.5);
     }
   }
 
@@ -845,6 +958,8 @@
     if (G.dimKey === 'wild' && P.pos.y < G.stats.minY) G.stats.minY = Math.floor(P.pos.y);
     if (G.dimKey === 'wild' && G.biome != null && !G.stats.biomes[G.biome]) { G.stats.biomes[G.biome] = 1; if (G.biome >= 2) Prog.addXP(G, 15, 'biome'); }
     Prog.tickCrops(G, 1);
+    structureTick(3);
+    riftSpawns();
     Prog.checkFeats(G);
     G.umbralNext = G.isUmbralDay(G.day) && G.phase < G.dayFrac && G.dimKey === 'wild';
     G.compassT = (G.compassT || 0) - 1;
@@ -861,7 +976,8 @@
   }
 
   // ---------- main loop ----------
-  let last = performance.now(), saveT = 0, prevBiome = -1, ambT = 0;
+  let last = performance.now(), saveT = 0, prevBiome = -1, ambT = 0, lastHint = '';
+  const HINTS = { [B.TRADE_STALL]: 'Trade Stall · right-click to trade', [B.EMBER_ANVIL]: 'Ember Anvil · right-click with a worn tool to repair it', [B.SUNWELL]: 'Sunwell · right-click for a blessing (once a day)', [B.GLOOM_RIFT]: 'Gloom Rift · break it with a pick to stop the gloomlings', [B.CACHE]: 'Ruin Cache · right-click to open', [B.CHEST]: 'Chest · right-click to open', [B.BENCH]: "Tinker's Bench · right-click to craft", [B.KILN]: 'Kiln · right-click to smelt', [B.HEARTH]: 'Hearth · right-click to make it your respawn point' };
   function frame(now) {
     requestAnimationFrame(frame);
     let dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -936,6 +1052,12 @@
       if (P.mine && P.mineP > 0) { crack.visible = true; crack.position.copy(hl.position); crack.geometry = crackGeos[Math.min(4, Math.floor(P.mineP * 5))]; }
       else crack.visible = false;
     } else { hl.visible = false; crack.visible = false; }
+    let hint = '';
+    if (!P.dead && !LL.UI.panel) {
+      if (P.mobTarget && P.mobTarget.def.npc) hint = 'Lantern Keeper · right-click to trade';
+      else if (t) hint = HINTS[t.id] || '';
+    }
+    if (hint !== lastHint) { lastHint = hint; $('hint').textContent = hint; }
     const lvp = G.world.lightAt(P.pos.x, P.pos.y + 1, P.pos.z);
     G.particles.update(G.paused ? 0 : dt, Math.min(1, LL.bright(Math.max((lvp >> 4) * G.daylight, lvp & 15, G.ambientLevel)) + 0.25));
     LL.UI.hud(dt);

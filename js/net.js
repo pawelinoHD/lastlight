@@ -137,7 +137,7 @@
       this.mobT -= dt;
       if (this.mobT <= 0 && this.players.size) {
         this.mobT = 0.12;
-        const list = g.mobs.filter(m => !m.dead).map(m => ({ u: m.uid, ty: m.type, x: +m.pos.x.toFixed(2), y: +m.pos.y.toFixed(2), z: +m.pos.z.toFixed(2), yw: +m.yaw.toFixed(2), hp: Math.ceil(m.hp), ph: m.phase || 0 }));
+        const list = g.mobs.filter(m => !m.dead && !m.def.npc).map(m => ({ u: m.uid, ty: m.type, x: +m.pos.x.toFixed(2), y: +m.pos.y.toFixed(2), z: +m.pos.z.toFixed(2), yw: +m.yaw.toFixed(2), hp: Math.ceil(m.hp), ph: m.phase || 0 }));
         this.send({ t: 'mobs', dim: g.dimKey, list });
       }
       this.players.forEach(r => r.update(dt));

@@ -74,6 +74,12 @@
     T({ type: 'craft', id: 32, n: 16, txt: 'Lay 16 Slate Bricks', xp: 35, rw: [[I.COPPER_INGOT, 1]], req: g => g.flags.placedBench && g.flags.gotPick }),
     T({ type: 'craft', id: 152, n: 2, txt: 'Bake 2 Hearthbread', xp: 45, rw: [[150, 4], [I.EMBER_INGOT, 1]], req: g => g.stats.planted > 0 && g.flags.gotCopper }),
     T({ type: 'cache', id: 'cache', n: 1, txt: 'Open a ruin cache', xp: 40, rw: [[I.LUMITE_SHARD, 3]] }),
+    T({ type: 'rift', id: 'rift', n: 1, txt: 'Close a Gloom Rift', xp: 70, rw: [[I.EMBER_INGOT, 2], [I.LUMITE_SHARD, 3]], req: g => g.flags.gotPick }),
+    T({ type: 'trade', id: 'any', n: 3, txt: 'Trade with a Lantern Keeper 3 times', xp: 35, rw: [[I.COPPER_INGOT, 2]] }),
+    T({ type: 'slay', id: 'boar', n: 2, txt: 'Hunt 2 Thornback Boars', xp: 40, rw: [[I.HIDE, 3]] }),
+    T({ type: 'slay', id: 'lurker', n: 2, txt: 'Drive off 2 Mire Lurkers', xp: 55, rw: [[I.SPORE_SAC, 2], [76, 8]], req: g => g.day >= 2 }),
+    T({ type: 'gather', id: I.MOTH_DUST, n: 4, txt: 'Catch 4 Glowmoth Dust', xp: 35, rw: [[53, 1]] }),
+    T({ type: 'gather', id: I.CINDERITE, n: 6, txt: 'Crack Emberbeetles for 6 Cinderite', xp: 30, rw: [[79, 1]], req: g => g.stats.biomes && g.stats.biomes[5] }),
     T({ type: 'place', id: 'any', n: 60, txt: 'Place 60 blocks (build!)', xp: 35, rw: [[53, 1], [32, 8]], req: g => g.flags.placedBench }),
   ];
   P.rollBounties = (g) => {
@@ -140,6 +146,11 @@
     { k: 'day30', n: 'Old Soul', d: 'Reach day 30', xp: 200, p: g => [g.day, 30] },
     { k: 'mine', n: 'Tunneler', d: 'Mine 1,000 blocks', xp: 80, p: g => [S(g).mined, 1000] },
     { k: 'build', n: 'Builder', d: 'Place 500 blocks', xp: 80, p: g => [S(g).placed, 500] },
+    { k: 'rift', n: 'Riftbreaker', d: 'Close a Gloom Rift', xp: 60, p: g => [S(g).rifts || 0, 1] },
+    { k: 'trade', n: 'Haggler', d: 'Trade 10 times with Lantern Keepers', xp: 50, p: g => [S(g).trades || 0, 10] },
+    { k: 'sunwell', n: 'Sunblessed', d: 'Receive a Sunwell blessing', xp: 25, p: g => [S(g).blessings || 0, 1] },
+    { k: 'anvil', n: 'Mended', d: 'Repair a tool at an Ember Anvil', xp: 25, p: g => [S(g).repairs || 0, 1] },
+    { k: 'bestiary', n: 'Bestiary', d: 'Defeat 10 different kinds of creature', xp: 150, p: g => [Object.keys(S(g).kills).length, 10] },
     { k: 'disc', n: 'Naturalist', d: 'Discover 50 different items', xp: 100, p: g => [Object.keys(S(g).seen).length, 50] },
   ];
   P.checkFeats = (g) => {

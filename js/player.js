@@ -135,6 +135,8 @@
       const fw = (inp.f ? 1 : 0) - (inp.b ? 1 : 0), st = (inp.r ? 1 : 0) - (inp.l ? 1 : 0);
       const sprint = inp.sprint && fw > 0;
       let speed = (this.inWater ? 2.7 : sprint ? 6.3 : 4.3) * (1 + 0.08 * this.perk('swift'));
+      this.slowT = (this.slowT || 0) - dt;
+      if (this.slowT > 0) { speed *= 0.55; if (Math.random() < dt * 6) g.particles.add(this.pos.x, this.pos.y + 0.3, this.pos.z, 0, -0.5, 0, [80, 110, 60], 0.6, 0.3); }
       const s = Math.sin(this.yaw), c = Math.cos(this.yaw);
       let wx = -s * fw + c * st, wz = -c * fw - s * st;
       const wl = Math.hypot(wx, wz); if (wl > 0) { wx /= wl; wz /= wl; }
@@ -244,9 +246,18 @@
     use() {
       const g = this.game, t = this.target, h = this.inv.held();
       this.useCd = 0.22;
+      if (this.mobTarget && this.mobTarget.def.npc) { g.openTrade(this.mobTarget.stall); this.useCd = 0.5; return; }
       // interactive blocks first
       if (t) {
         const id = t.id;
+        if (id === B.TRADE_STALL) { g.openTrade({ x: t.x, y: t.y, z: t.z }); this.useCd = 0.5; return; }
+        if (id === B.EMBER_ANVIL) { g.repairAt(h); this.useCd = 0.5; return; }
+        if (id === B.SUNWELL) { g.useSunwell(t); this.useCd = 1; return; }
+        if (h && h.id === LL.I.SPORE_SAC && (id === B.CROP0 || id === B.CROP1 || id === B.BARE_BUSH)) {
+          g.world.setBlock(t.x, t.y, t.z, id === B.BARE_BUSH ? B.BERRY_BUSH : id + 1);
+          g.particles.burst(t.x + 0.5, t.y + 0.5, t.z + 0.5, [190, 140, 240], 18, 2);
+          this.inv.useHeld(1); this.swing = 1; LL.sfx.place(57); g.ui.refresh(); return;
+        }
         if (id === B.BENCH || id === B.KILN) { g.ui.openInventory(); return; }
         if (id === B.CACHE) { g.openCache(t); this.useCd = 0.5; return; }
         if (id === B.CHEST) { g.ui.openInventory(t.x + ',' + t.y + ',' + t.z); return; }

@@ -279,6 +279,21 @@
   tile('crop2', p => { p.clear(); for (let k = 0; k < 4; k++) { const x = 2 + k * 4; for (let i = 0; i < 12; i++) p.set(x + (i % 3 === 2 ? 1 : 0), 15 - i, p.j('#4a9a38', 14)); p.set(x - 1, 6, rgb('#8ad86a')); p.set(x + 1, 5, rgb('#8ad86a')); p.set(x, 3, [255, 200, 70]); p.set(x + 1, 3, [255, 220, 110]); p.set(x, 4, [240, 170, 50]); for (let y = 13; y < 16; y++) { p.set(x, y, [235, 140, 50]); p.set(x + 1, y, [210, 110, 40]); } } });
   tile('ward_side', p => { p.fill('#5a5868', 6); frame(p, '#3a3846'); frame(p, '#7a788a', 1); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const d = Math.hypot((x - 7.5) / 5, (y - 7.5) / 3); if (d < 1 && d > 0.7) p.set(x, y, [200, 235, 255]); } for (let y = 6; y < 10; y++) for (let x = 6; x < 10; x++) p.set(x, y, Math.hypot(x - 7.5, y - 7.5) < 1.5 ? [255, 255, 255] : [120, 200, 255]); });
   tile('ward_top', p => { p.fill('#5a5868', 6); frame(p, '#3a3846'); for (let y = 5; y < 11; y++) for (let x = 5; x < 11; x++) p.set(x, y, [150, 220, 255]); });
+  tile('thatch', p => { p.fill('#c8a85a', 8); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { if ((x + (y >> 1)) % 3 === 0) p.mul(x, y, 0.82); if (p.r() < 0.08) p.mul(x, y, 1.15); } for (let x = 0; x < 16; x++) { p.mul(x, 7, 0.7); p.mul(x, 15, 0.7); } });
+  tile('mossy_cobble', p => { cobble(p, '#6c7380', '#3f434c'); for (let k = 0; k < 7; k++) { let x = p.ri(0, 15), y = p.ri(0, 15); for (let i = 0; i < 6; i++) { p.set(x, y, p.j('#4f7a3a', 18)); x += p.ri(-1, 1); y += p.ri(-1, 1); } } });
+  tile('basalt_side', p => { p.fill('#34323a', 6); for (let x = 0; x < 16; x += 4) for (let y = 0; y < 16; y++) { p.mul(x, y, 0.65); p.mul(x + 1, y, 1.12); } p.speck('#4a4650', 0.08); });
+  tile('basalt_top', p => { p.fill('#34323a', 6); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const hx = (x + (Math.floor(y / 5) % 2) * 2.5) % 5, hy = y % 5; if (hx < 0.8 || hy < 0.8) p.mul(x, y, 0.62); } });
+  tile('peat', p => p.fill('#3a2a1e', 8).speck('#2a1c12', 0.25).speck('#5a4a2a', 0.08).speck('#6a5a30', 0.04));
+  tile('ice_bricks', p => { bricks(p, '#a8d4f2', '#e8f4ff'); p.speck('#ffffff', 0.04); });
+  tile('mud_bricks', p => bricks(p, '#6e5640', '#4a3a2a'));
+  tile('anvil_top', p => { p.fill('#2c2a30', 4); for (let y = 3; y < 13; y++) for (let x = 1; x < 15; x++) p.set(x, y, p.j(y < 5 ? [120, 116, 128] : [80, 76, 88], 6)); for (let x = 4; x < 12; x++) p.set(x, 8, [255, 140, 50]); p.set(7, 7, [255, 220, 120]); p.set(8, 9, [255, 200, 90]); });
+  tile('anvil_side', p => { p.fill('#3a3640', 5); for (let y = 0; y < 5; y++) for (let x = 0; x < 16; x++) p.set(x, y, p.j([96, 92, 104], 6)); for (let y = 5; y < 11; y++) for (let x = 4; x < 12; x++) p.set(x, y, p.j([70, 66, 78], 6)); for (let y = 11; y < 16; y++) for (let x = 2; x < 14; x++) p.set(x, y, p.j([84, 80, 92], 6)); for (let x = 5; x < 11; x++) p.set(x, 7, [255, 130, 40]); });
+  tile('sunwell_top', p => { p.fill('#d8cfb4', 5); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d < 2.5) p.set(x, y, [255, 252, 220]); else if (d < 4.2) p.set(x, y, [255, 210, 90]); else if (d < 5) p.set(x, y, [180, 140, 60]); else if (d < 7.5 && Math.round(Math.atan2(y - 7.5, x - 7.5) * 6 / Math.PI) % 2 === 0) p.set(x, y, [230, 200, 120]); } });
+  tile('sunwell_side', p => { p.fill('#d8cfb4', 5); frame(p, '#a89a74'); for (let x = 2; x < 14; x++) { p.set(x, 3, [255, 210, 90]); p.set(x, 12, [255, 210, 90]); } for (let y = 4; y < 12; y++) { p.set(7, y, [255, 230, 140]); p.set(8, y, [255, 230, 140]); } });
+  tile('rift', p => { p.fill('#0c0812', 4); for (let k = 0; k < 3; k++) { const ph = k * 2.1; for (let t = 0; t < 40; t++) { const a = ph + t * 0.25, r = 1 + t * 0.17; p.set(7.5 + Math.cos(a) * r, 7.5 + Math.sin(a) * r, t > 30 ? [60, 20, 90] : [170, 70, 255]); } } p.set(7, 7, [255, 120, 240]); p.set(8, 8, [255, 120, 240]); });
+  tile('stall_top', p => { planks(p, '#8a6440'); frame(p, '#5a3e22'); for (let x = 3; x < 6; x++) for (let y = 4; y < 7; y++) p.set(x, y, [220, 90, 40]); for (let x = 9; x < 12; x++) for (let y = 9; y < 12; y++) p.set(x, y, [110, 200, 120]); p.set(11, 4, [96, 232, 196]); p.set(4, 11, [255, 200, 80]); });
+  tile('stall_side', p => { planks(p, '#8a6440'); for (let y = 0; y < 4; y++) for (let x = 0; x < 16; x++) p.set(x, y, (x >> 2) % 2 ? [200, 60, 50] : [240, 220, 190]); });
+
 
 
   LL.atlasTexture = function () {
@@ -376,6 +391,16 @@
   def(70, 'RUIN_BRICK', 'Weathered Bricks', { tiles: 'ruin_brick', hard: 3.5, tool: 'pick', tier: 1 });
   def(71, 'GLOAM_BRICKS', 'Umbral Bricks', { tiles: 'gloam_bricks', hard: 3.5, tool: 'pick', tier: 1 });
   def(72, 'SHARDSTONE', 'Shardstone', { tiles: 'shardstone', hard: 2.2, tool: 'pick', tier: 1, light: 4, drop: (r) => r() < 0.3 ? [[106, 1]] : [[72, 1]] });
+  def(73, 'THATCH', 'Thatch', { tiles: 'thatch', hard: 0.6, tool: 'axe' });
+  def(74, 'MOSSY_COBBLE', 'Mossy Cobble', { tiles: 'mossy_cobble', hard: 3.4, tool: 'pick', tier: 1 });
+  def(75, 'BASALT', 'Basalt', { tiles: ['basalt_top', 'basalt_side'], hard: 3.6, tool: 'pick', tier: 1 });
+  def(76, 'PEAT', 'Peat', { tiles: 'peat', hard: 0.8, tool: 'shovel' });
+  def(77, 'ICE_BRICKS', 'Ice Bricks', { tiles: 'ice_bricks', hard: 1.5, tool: 'pick' });
+  def(78, 'MUD_BRICKS', 'Mud Bricks', { tiles: 'mud_bricks', hard: 2.5, tool: 'pick', tier: 1 });
+  def(79, 'EMBER_ANVIL', 'Ember Anvil', { tiles: ['anvil_top', 'anvil_side'], hard: 4, tool: 'pick', tier: 1, light: 6 });
+  def(80, 'SUNWELL', 'Sunwell', { tiles: ['sunwell_top', 'sunwell_side'], hard: -1, light: 13, drop: null });
+  def(81, 'GLOOM_RIFT', 'Gloom Rift', { tiles: 'rift', hard: 6, tool: 'pick', tier: 1, drop: null });
+  def(82, 'TRADE_STALL', 'Trade Stall', { tiles: ['stall_top', 'drift_planks', 'stall_side'], hard: -1, drop: null });
 
 
   // ---------- items ----------
@@ -410,6 +435,8 @@
   item(155, 'BOOTS_SPRING', 'Springstep Boots', { shape: 'boots', color: '#60e8c4', stack: 1, armor: { slot: 2, val: 2 }, dj: true, desc: 'Wear them to jump again in mid-air.' });
   item(156, 'LUMITE_BLADE', 'Lumite Blade', { shape: 'blade', color: '#60e8c4', stack: 1, tool: { kind: 'blade', tier: 3, speed: 2, dmg: 8, dur: 420 } });
   item(157, 'GLOOM_HEART', 'Gloom Heart', { shape: 'orb', color: '#3a1050', desc: 'Torn from a Gloom Brute. Still beating.' });
+  item(158, 'MOTH_DUST', 'Glowmoth Dust', { shape: 'lump', color: '#d8f080', desc: 'Shimmering scales. Makes lamps without Lumite.' });
+  item(159, 'SPORE_SAC', 'Spore Sac', { shape: 'orb', color: '#9a6ac8', desc: 'Right-click a crop or picked bush to make it grow at once.' });
   const BPS = LL.BLUEPRINTS = [[160, 153], [161, 155], [162, 69], [163, 154], [164, 156]];
   BPS.forEach(([id, out]) => item(id, 'BP_' + out, 'Blueprint', { shape: 'scroll', color: '#e8d8b0', bp: out, desc: 'Right-click to learn how to craft it.' }));
   [['Hide', '#8a6440', [1, 2, 1]], ['Copper', '#d9803c', [2, 3, 2]], ['Emberite', '#ff8a1e', [3, 5, 3]]].forEach(([n, c, v], t) => {
@@ -517,7 +544,7 @@
   LL.GROUPS = {
     log: [5, 8, 11, 45, 34],
     planks: [6, 9, 12],
-    fuel: [101, 102],
+    fuel: [101, 102, 76],
   };
   LL.GROUP_NAME = { log: 'Any Log', planks: 'Any Planks', fuel: 'Fuel' };
   const R = LL.RECIPES = [];
@@ -561,5 +588,12 @@
   rec('bench', 'build', 69, 1, [[70, 4], [157, 1], [106, 2]], true);
   rec('kiln', 'gear', 154, 1, [[101, 8], [103, 1]], true);
   rec('bench', 'tools', 156, 1, [[106, 6], [103, 1], [100, 1]], true);
+  rec('hand', 'build', 73, 4, [[150, 6]]);
+  rec('hand', 'build', 74, 4, [[4, 4], [150, 1]]);
+  rec('bench', 'build', 77, 4, [[17, 4]]);
+  rec('kiln', 'smelt', 78, 4, [[19, 4], ['fuel', 1]]);
+  rec('bench', 'build', 79, 1, [[105, 3], [4, 6]]);
+  rec('bench', 'build', 53, 1, [[158, 3], [28, 1]]);
+
 
 })(window.LL);

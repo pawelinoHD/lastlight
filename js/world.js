@@ -50,7 +50,7 @@
       put(x, y + h, z, B.FROST_LEAVES, true); put(x, y + h + 1, z, B.FROST_LEAVES, true);
     },
     [BIO.ASH]: (x, y, z, r, put) => {
-      if (r() < 0.4) { const h = 3 + (r() * 7 | 0); for (let i = 0; i < h; i++) { put(x, y + i - 1, z, B.SLATE); if (i < h / 2) { if (r() < 0.7) put(x + 1, y + i - 1, z, B.SLATE); if (r() < 0.5) put(x, y + i - 1, z + 1, B.SLATE); } } return; }
+      if (r() < 0.4) { const h = 3 + (r() * 7 | 0); for (let i = 0; i < h; i++) { put(x, y + i - 1, z, B.BASALT); if (i < h / 2) { if (r() < 0.7) put(x + 1, y + i - 1, z, B.BASALT); if (r() < 0.5) put(x, y + i - 1, z + 1, B.BASALT); } } return; }
       const h = 3 + (r() * 4 | 0);
       for (let i = 0; i < h; i++) put(x, y + i, z, B.CHARRED_LOG);
       for (let k = 0; k < 2; k++) { const dx = r() < 0.5 ? 1 : -1, dz = r() < 0.5 ? (r() < 0.5 ? 1 : -1) : 0; const by = y + h - 1 - (r() * 2 | 0); put(x + dx, by, z + dz, B.CHARRED_LOG); put(x + dx * 2, by + 1, z + dz * 2, B.CHARRED_LOG); }
@@ -133,9 +133,109 @@
     } else if (ru.type === 'cairn') {
       for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { for (let y = h + 1; y < h + 6; y++) set(8 + dx, y, 8 + dz, 0); if (Math.abs(dx) === 2 || Math.abs(dz) === 2) { if (r() < 0.7) set(8 + dx, h + 1, 8 + dz, W); if (r() < 0.35) set(8 + dx, h + 2, 8 + dz, W); } }
     }
-    set(ru.x - ox, ru.y, ru.z - oz, B.CACHE);
+    else if (ru.type === 'village') {
+      for (let z = 1; z <= 14; z++) for (let x = 1; x <= 14; x++) {
+        for (let y = h + 1; y <= h + 10; y++) set(x, y, z, 0);
+        set(x, h, z, (x === 8 || z === 8) && r() < 0.7 ? B.MOSSY_COBBLE : B.TURF);
+        for (let y = h - 3; y < h; y++) if (!get(x, y, z)) set(x, y, z, B.LOAM);
+      }
+      const hut = (x0, z0, kind) => {
+        const plank = kind === 'B' ? B.ROSE_PLANKS : B.DRIFT_PLANKS;
+        for (let z = z0; z <= z0 + 4; z++) for (let x = x0; x <= x0 + 4; x++) {
+          set(x, h, z, B.DRIFT_PLANKS);
+          const edge = x === x0 || x === x0 + 4 || z === z0 || z === z0 + 4;
+          if (!edge) continue;
+          const corner = (x === x0 || x === x0 + 4) && (z === z0 || z === z0 + 4);
+          for (let y = h + 1; y <= h + 3; y++) {
+            if (corner) { set(x, y, z, B.DRIFT_LOG); continue; }
+            const mid = x === x0 + 2 || z === z0 + 2;
+            set(x, y, z, r() < 0.08 ? 0 : (y === h + 2 && mid ? B.GLASS : plank));
+          }
+        }
+        set(x0 + 2, h + 1, z0 + 4, 0); set(x0 + 2, h + 2, z0 + 4, 0);
+        for (let z = z0 - 1; z <= z0 + 5; z++) for (let x = x0 - 1; x <= x0 + 5; x++) set(x, h + 4, z, B.THATCH);
+        for (let z = z0; z <= z0 + 4; z++) for (let x = x0; x <= x0 + 4; x++) set(x, h + 5, z, B.THATCH);
+        for (let z = z0 + 1; z <= z0 + 3; z++) for (let x = x0 + 1; x <= x0 + 3; x++) set(x, h + 6, z, B.THATCH);
+        if (kind === 'A') set(x0 + 3, h + 1, z0 + 1, B.LANTERN);
+        if (kind === 'B') { set(x0 + 1, h + 1, z0 + 1, B.BENCH); set(x0 + 3, h + 1, z0 + 1, B.CHEST); }
+        if (kind === 'C') { set(x0 + 1, h + 1, z0 + 1, B.KILN); set(x0 + 3, h + 1, z0 + 1, B.LANTERN); }
+      };
+      hut(2, 2, 'A'); hut(9, 2, 'B'); hut(2, 9, 'C');
+      for (let z = 10; z <= 12; z++) for (let x = 10; x <= 12; x++) { const c = x === 11 && z === 11; set(x, h, z, c ? B.WATER : B.MOSSY_COBBLE); if (!c) set(x, h + 1, z, B.MOSSY_COBBLE); }
+      set(11, h - 1, 11, B.WATER); set(11, h - 2, 11, B.WATER);
+      for (const x of [10, 12]) for (let y = h + 2; y <= h + 3; y++) set(x, y, 11, B.DRIFT_LOG);
+      for (let x = 10; x <= 12; x++) set(x, h + 4, 11, B.THATCH);
+      set(11, h + 1, 8, B.DRIFT_PLANKS); set(12, h + 1, 8, B.TRADE_STALL); set(13, h + 1, 8, B.DRIFT_PLANKS);
+      set(11, h + 2, 8, B.DRIFT_LOG); set(13, h + 2, 8, B.DRIFT_LOG); set(11, h + 3, 8, B.DRIFT_LOG); set(13, h + 3, 8, B.DRIFT_LOG);
+      for (let z = 7; z <= 9; z++) for (let x = 10; x <= 14; x++) set(x, h + 4, z, B.THATCH);
+      set(8, h + 1, 7, B.COBBLE); set(8, h + 2, 7, B.DRIFT_LOG); set(8, h + 3, 7, B.DRIFT_LOG); set(8, h + 4, 7, B.LANTERN);
+      set(5, h + 1, 12, B.BERRY_BUSH); set(6, h + 1, 13, B.EMBERBLOOM);
+    } else if (ru.type === 'nest') {
+      for (let dz = -7; dz <= 7; dz++) for (let dx = -7; dx <= 7; dx++) {
+        const d = Math.hypot(dx, dz); if (d >= 7.2) continue;
+        const depth = d < 6 ? Math.round((1 - d / 6) * 4) : 0;
+        for (let y = h - depth + 1; y <= h + 9; y++) set(8 + dx, y, 8 + dz, 0);
+        set(8 + dx, h - depth, 8 + dz, d < 6 ? (r() < 0.5 ? B.BASALT : B.ASH) : B.ASH);
+      }
+      for (let k = 0; k < 7; k++) {
+        const a = k / 7 * Math.PI * 2 + r() * 0.4, rr = 4.5 + r() * 1.2;
+        const x = Math.round(8 + Math.cos(a) * rr), z = Math.round(8 + Math.sin(a) * rr);
+        const floor = h - Math.round((1 - Math.min(1, Math.hypot(x - 8, z - 8) / 6)) * 4);
+        const tall = 2 + (r() * 4 | 0);
+        for (let y = floor + 1; y <= floor + tall; y++) set(x, y, z, B.BASALT);
+      }
+      set(8, h - 3, 8, B.GLOOM_RIFT);
+    } else if (ru.type === 'circle') {
+      for (let dz = -7; dz <= 7; dz++) for (let dx = -7; dx <= 7; dx++) if (Math.hypot(dx, dz) < 7.5) for (let y = h + 1; y <= h + 9; y++) set(8 + dx, y, 8 + dz, 0);
+      for (let k = 0; k < 8; k++) {
+        const a = k * Math.PI / 4, x = Math.round(8 + Math.cos(a) * 5), z = Math.round(8 + Math.sin(a) * 5);
+        if (r() < 0.2) { set(x, h + 1, z, B.MOSSY_COBBLE); set(Math.round(8 + Math.cos(a) * 6), h + 1, Math.round(8 + Math.sin(a) * 6), B.MOSSY_COBBLE); continue; }
+        const tall = 2 + (r() * 3 | 0);
+        for (let y = h + 1; y <= h + tall; y++) set(x, y, z, r() < 0.6 ? B.MOSSY_COBBLE : B.COBBLE);
+      }
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) set(8 + dx, h, 8 + dz, B.MOSSY_COBBLE);
+      for (let k = 0; k < 6; k++) { const a = r() * Math.PI * 2, rr = 2 + r() * 2; set(Math.round(8 + Math.cos(a) * rr), h + 1, Math.round(8 + Math.sin(a) * rr), r() < 0.5 ? B.EMBERBLOOM : B.TALLGRASS); }
+      set(8, h, 8, B.SUNWELL);
+    } else if (ru.type === 'forge') {
+      for (let z = 3; z <= 11; z++) for (let x = 3; x <= 13; x++) {
+        for (let y = h + 1; y <= h + 9; y++) set(x, y, z, 0);
+        set(x, h, z, B.BASALT);
+        if (x === 3 || x === 13 || z === 3 || z === 11) {
+          const top = 1 + (r() * 3 | 0);
+          for (let y = h + 1; y <= h + top; y++) set(x, y, z, r() < 0.35 ? B.KILN_BRICKS : B.BASALT);
+        }
+      }
+      for (let y = h + 1; y <= h + 3; y++) for (const x of [7, 8]) set(x, y, 11, 0);
+      for (let y = h + 1; y <= h + 7; y++) for (let x = 4; x <= 5; x++) for (let z = 4; z <= 5; z++) set(x, y, z, B.KILN_BRICKS);
+      set(4, h + 1, 6, B.KILN); set(8, h + 1, 7, B.EMBER_ANVIL); set(6, h + 1, 10, B.LANTERN);
+      set(11, h + 1, 9, B.CINDER_ORE); set(12, h + 1, 9, B.CINDER_ORE); set(12, h + 2, 9, B.CINDER_ORE); set(10, h + 1, 10, B.COPPER_ORE);
+    } else if (ru.type === 'bog') {
+      const b = ru.base, f = b + 3;
+      for (let z = 4; z <= 13; z++) for (let x = 4; x <= 12; x++) for (let y = b + 1; y <= f + 7; y++) set(x, y, z, 0);
+      for (const [x, z] of [[6, 6], [10, 6], [6, 10], [10, 10]]) for (let y = b - 1; y < f; y++) set(x, y, z, B.DRIFT_LOG);
+      for (let z = 6; z <= 10; z++) for (let x = 6; x <= 10; x++) {
+        set(x, f, z, B.DRIFT_PLANKS);
+        if (x === 6 || x === 10 || z === 6 || z === 10) for (let y = f + 1; y <= f + 2; y++) set(x, y, z, r() < 0.45 ? B.MUD_BRICKS : B.DRIFT_PLANKS);
+      }
+      set(8, f + 1, 10, 0); set(8, f + 2, 10, 0);
+      for (let z = 5; z <= 11; z++) for (let x = 5; x <= 11; x++) set(x, f + 3, z, B.THATCH);
+      for (let z = 6; z <= 10; z++) for (let x = 6; x <= 10; x++) set(x, f + 4, z, B.THATCH);
+      for (let z = 7; z <= 9; z++) for (let x = 7; x <= 9; x++) set(x, f + 5, z, B.THATCH);
+      for (let k = 1; k <= 3; k++) set(8, f - k, 10 + k, B.DRIFT_PLANKS);
+      set(7, f + 1, 7, B.LANTERN); set(9, f + 1, 7, B.GLOWCAP);
+    } else if (ru.type === 'caravan') {
+      for (let z = 3; z <= 14; z++) for (let x = 2; x <= 14; x++) for (let y = h + 1; y <= h + 8; y++) set(x, y, z, 0);
+      const wagon = (x0, z0) => {
+        for (let z = z0; z <= z0 + 2; z++) for (let x = x0; x <= x0 + 4; x++) set(x, h + 1, z, B.FROST_PLANKS);
+        for (const x of [x0 + 1, x0 + 3]) { set(x, h + 1, z0 - 1, B.DRIFT_LOG); set(x, h + 1, z0 + 3, B.DRIFT_LOG); }
+        for (let x = x0; x <= x0 + 4; x++) { set(x, h + 2, z0, r() < 0.3 ? B.ICE : B.THATCH); set(x, h + 2, z0 + 2, r() < 0.3 ? B.ICE : B.THATCH); set(x, h + 3, z0 + 1, r() < 0.3 ? B.ICE : B.THATCH); set(x, h + 3, z0, B.SNOW); set(x, h + 3, z0 + 2, B.SNOW); }
+      };
+      wagon(3, 6); wagon(9, 10);
+      for (let k = 0; k < 8; k++) { const x = 2 + (r() * 12 | 0), z = 3 + (r() * 11 | 0); if (!get(x, h + 1, z)) set(x, h + 1, z, r() < 0.4 ? B.ICE_BRICKS : B.SNOW); }
+    }
+    if (!ru.noCache) set(ru.x - ox, ru.y, ru.z - oz, B.CACHE);
   }
-  LL.ruinTypeName = { tower: 'Ruined Watchtower', vault: 'Buried Vault', camp: 'Abandoned Camp', shrine: 'Umbral Shrine', cairn: 'Sky Cairn' };
+  LL.ruinTypeName = { tower: 'Ruined Watchtower', vault: 'Buried Vault', camp: 'Abandoned Camp', shrine: 'Umbral Shrine', cairn: 'Sky Cairn', village: 'Hollowstead', nest: 'Gloom Nest', circle: 'Sunwell Circle', forge: 'Ash Forge', bog: 'Bog Hut', caravan: 'Frozen Caravan' };
 
   // ---------- Wildlands ----------
   function WildGen(seed) {
@@ -190,8 +290,8 @@
           let id;
           if (y === 0) id = B.CORESTONE;
           else if (y < 3) id = rng() < 0.5 ? B.CORESTONE : B.SLATE;
-          else if (y < h - 3) id = B.SLATE;
-          else if (y < h) id = fill;
+          else if (y < h - 3) id = (b === BIO.ASH && y > h - 12) ? B.BASALT : B.SLATE;
+          else if (y < h) id = (b === BIO.MIRE && y < h - 1) ? B.PEAT : fill;
           else if (y === h) id = top;
           else id = (b === BIO.PINE && y === SEA) ? B.ICE : B.WATER;
           bl[i] = id;
@@ -251,12 +351,27 @@
     };
     this.ruinAt = function (cx, cz) {
       const r = ruinRng(cx, cz, seed);
-      if (r() > 0.06) return null;
+      if (r() > 0.085) return null;
       const tr = r(), sd = (r() * 1e9) | 0;
       const col = column(cx * CS + 8, cz * CS + 8);
-      if (col.h <= SEA + 1 || col.h > 78 || col.b === BIO.OCEAN || col.b === BIO.BEACH) return null;
-      const type = tr < 0.4 ? 'tower' : tr < 0.7 ? 'vault' : 'camp';
-      const h = col.h;
+      const bio = col.b, h = col.h;
+      if (col.h > 78 || bio === BIO.OCEAN || bio === BIO.BEACH) return null;
+      let type;
+      if (bio === BIO.ASH && tr < 0.45) type = 'forge';
+      else if (bio === BIO.MIRE && tr < 0.45) type = 'bog';
+      else if (bio === BIO.PINE && tr < 0.4) type = 'caravan';
+      else {
+        const t2 = (tr * 7.31) % 1;
+        type = t2 < 0.2 ? 'tower' : t2 < 0.35 ? 'vault' : t2 < 0.47 ? 'camp' : t2 < 0.65 ? ((bio === BIO.MEADOW || bio === BIO.ROSE || bio === BIO.SHARD) ? 'village' : 'tower') : t2 < 0.84 ? 'nest' : 'circle';
+      }
+      if (type === 'bog') { const base = Math.max(h, SEA); return { type, h, base, y: base + 4, x: cx * CS + 9, z: cz * CS + 9, seed: sd }; }
+      if (col.h <= SEA + 1) return null;
+      const X = cx * CS, Z = cz * CS;
+      if (type === 'village') return { type, h, y: h + 1, x: X + 3, z: Z + 3, seed: sd, stall: { x: X + 12, y: h + 1, z: Z + 8 } };
+      if (type === 'nest') return { type, h, y: h - 4, x: X + 8, z: Z + 8, seed: sd, rift: { x: X + 8, y: h - 3, z: Z + 8 } };
+      if (type === 'circle') return { type, h, y: h, x: X + 8, z: Z + 8, seed: sd, noCache: true };
+      if (type === 'forge') return { type, h, y: h + 1, x: X + 11, z: Z + 6, seed: sd };
+      if (type === 'caravan') return { type, h, y: h + 2, x: X + 5, z: Z + 7, seed: sd };
       if (type === 'vault') { const y0 = Math.max(8, h - 14); return { type, h, y: y0, x: cx * CS + 8, z: cz * CS + 6, seed: sd }; }
       if (type === 'camp') return { type, h, y: h + 1, x: cx * CS + 11, z: cz * CS + 8, seed: sd };
       return { type, h, y: h + 1, x: cx * CS + 8, z: cz * CS + 8, seed: sd };

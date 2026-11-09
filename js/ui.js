@@ -240,6 +240,23 @@
       this.refresh();
     },
 
+    // ---------- trading ----------
+    openTrade(offers, doTrade) {
+      const g = this.game; if (g.player.dead) return;
+      this.panel = 'trade'; $('invpanel').classList.add('hidden'); $('journal').classList.add('hidden'); $('tradepanel').classList.remove('hidden');
+      g.releasePointer();
+      this._trade = { offers, doTrade };
+      this.renderTrade();
+    },
+    renderTrade() {
+      const { offers } = this._trade, inv = this.game.player.inv;
+      $('tradelist').innerHTML = offers.map(([give, get], i) => {
+        const ok = inv.count(give[0]) >= give[1];
+        const out = get === 'bp' ? '<img src="' + LL.iconURL(160) + '"><span>Lost blueprint</span>' : '<img src="' + LL.iconURL(get[0]) + '"><span>' + get[1] + '× ' + LL.itemName(get[0]) + '</span>';
+        return '<div class="trow ' + (ok ? 'ok' : '') + '"><div class="tgive"><img src="' + LL.iconURL(give[0]) + '"><span>' + give[1] + '× ' + LL.itemName(give[0]) + '<small>you have ' + inv.count(give[0]) + '</small></span></div><b class="tarrow">→</b><div class="tget">' + out + '</div><button class="btn small" data-i="' + i + '"' + (ok ? '' : ' disabled') + '>Trade</button></div>';
+      }).join('');
+      $('tradelist').querySelectorAll('button').forEach(b => b.onclick = () => { const [give, get] = this._trade.offers[+b.dataset.i]; if (this._trade.doTrade(give, get)) { this.refresh(); this.renderTrade(); } });
+    },
     // ---------- perks ----------
     showPerks(opts, cb) {
       const g = this.game;
@@ -307,6 +324,8 @@
       $('lvl').textContent = g.level;
       $('lvl').classList.toggle('pend', g.pendingPerks > 0);
       const a = P.armor(); $('armorhud').textContent = a ? '⛨ ' + a : '';
+      const bl = g.blessLeft > 0 ? '☀ Sunwell ' + Math.floor(g.blessLeft / 60) + ':' + String(Math.floor(g.blessLeft % 60)).padStart(2, '0') : '';
+      $('buffs').textContent = [bl, P.slowT > 0 ? '≈ Bogged down' : ''].filter(Boolean).join('   ');
       $('umbral').classList.toggle('hidden', !g.umbralActive);
       const q = LL.QUESTS.find(q => !g.flags[q.f]);
       const key = q ? q.t : 'done';

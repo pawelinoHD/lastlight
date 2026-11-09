@@ -89,6 +89,87 @@
       m.legR = part(g, mat, 0.36, 0.95, 0.36, 0x120c1a, 0.3, 0.95, 0, 0.5);
       for (let i = 0; i < 5; i++) part(g, mat, 0.12, 0.4, 0.12, 0x3a2456, (i - 2) * 0.24, 2.6, -0.3).rotation.z = (i - 2) * 0.25;
     },
+    boar(m) {
+      const g = m.group, mat = m.mat;
+      m.body = part(g, mat, 0.72, 0.62, 1.1, 0x5a4a3e, 0, 0.72, 0);
+      m.head = part(g, mat, 0.46, 0.42, 0.46, 0x4e4034, 0, 0.72, 0.7);
+      part(m.head, mat, 0.26, 0.2, 0.16, 0x7a6252, 0, -0.06, 0.28);
+      [-1, 1].forEach(s => part(m.head, mat, 0.06, 0.18, 0.06, 0xf0e8d8, 0.15 * s, 0.02, 0.32));
+      const em = eyeMat(0x221510); m.extraMats.push(em);
+      part(m.head, em, 0.06, 0.06, 0.02, 0, -0.14, 0.1, 0.24); part(m.head, em, 0.06, 0.06, 0.02, 0, 0.14, 0.1, 0.24);
+      for (let i = 0; i < 6; i++) { const t = part(g, mat, 0.09, 0.3, 0.09, i % 2 ? 0x3a5a2a : 0x6a8a3a, (i % 2 ? 0.12 : -0.12), 1.12, -0.4 + i * 0.16); t.rotation.x = -0.5; }
+      m.legs = [[-0.22, 0.38], [0.22, 0.38], [-0.22, -0.38], [0.22, -0.38]].map(([x, z]) => part(g, mat, 0.16, 0.45, 0.16, 0x3e3228, x, 0.45, z, 0.22));
+    },
+    lurker(m) {
+      const g = m.group, mat = m.mat;
+      m.body = part(g, mat, 1.0, 0.4, 1.2, 0x3a4a2e, 0, 0.32, 0);
+      m.head = part(g, mat, 0.72, 0.34, 0.55, 0x44562f, 0, 0.36, 0.78);
+      const em = eyeMat(0xf0d040); m.extraMats.push(em);
+      part(m.head, em, 0.1, 0.08, 0.1, 0, -0.2, 0.2, 0.1); part(m.head, em, 0.1, 0.08, 0.1, 0, 0.2, 0.2, 0.1);
+      part(m.head, mat, 0.6, 0.06, 0.1, 0x8a2a2a, 0, -0.1, 0.28);
+      for (let i = 0; i < 5; i++) { const f = part(g, mat, 0.08, 0.5, 0.08, 0x5a7a3a, -0.4 + i * 0.2, 0.7, -0.2 + (i % 2) * 0.3); f.rotation.z = (i - 2) * 0.25; }
+      m.legs = [[-0.45, 0.4], [0.45, 0.4], [-0.45, -0.4], [0.45, -0.4]].map(([x, z]) => part(g, mat, 0.18, 0.25, 0.18, 0x2e3a24, x, 0.2, z, 0.12));
+    },
+    beetle(m) {
+      const g = m.group, mat = m.mat;
+      m.body = part(g, mat, 0.8, 0.42, 0.95, 0x2a1a14, 0, 0.42, 0);
+      const em = eyeMat(0xff7a2a); m.extraMats.push(em); m.glowMat = em;
+      part(m.body, em, 0.06, 0.03, 0.9, 0, 0, 0.215, 0);
+      for (let i = 0; i < 3; i++) part(m.body, em, 0.12, 0.03, 0.12, 0, (i - 1) * 0.25, 0.215, -0.2 + i * 0.15);
+      m.head = part(g, mat, 0.42, 0.26, 0.3, 0x1e120e, 0, 0.36, 0.6);
+      part(m.head, mat, 0.06, 0.06, 0.3, 0x3a2418, -0.12, 0.05, 0.25); part(m.head, mat, 0.06, 0.06, 0.3, 0x3a2418, 0.12, 0.05, 0.25);
+      m.legs = [];
+      for (let i = 0; i < 6; i++) { const s = i < 3 ? -1 : 1; const l = part(g, mat, 0.45, 0.06, 0.06, 0x1a100c, 0.5 * s, 0.25, -0.3 + (i % 3) * 0.3); l.rotation.z = 0.5 * s; m.legs.push(l); }
+    },
+    wraith(m) {
+      const g = m.group, mat = m.mat;
+      m.body = part(g, mat, 0.55, 0.7, 0.4, 0xcfe0f4, 0, 1.15, 0);
+      m.head = part(g, mat, 0.48, 0.46, 0.46, 0xe0ecfa, 0, 1.72, 0);
+      const em = eyeMat(0x60d0ff), hood = new THREE.MeshBasicMaterial({ color: 0x9ab8dc, transparent: true, opacity: 0.55, depthWrite: false }); m.extraMats.push(em, hood);
+      part(m.head, em, 0.1, 0.05, 0.02, 0, -0.11, 0.0, 0.24); part(m.head, em, 0.1, 0.05, 0.02, 0, 0.11, 0.0, 0.24);
+      part(g, hood, 0.7, 0.6, 0.6, 0, 0, 1.78, -0.05);
+      m.tail = [];
+      for (let i = 0; i < 4; i++) m.tail.push(part(g, hood, 0.5 - i * 0.1, 0.25, 0.4 - i * 0.07, 0, 0, 0.75 - i * 0.22, 0));
+      m.armL = part(g, mat, 0.12, 0.7, 0.12, 0xb8cce4, -0.38, 1.45, 0.05, 0.35); m.armR = part(g, mat, 0.12, 0.7, 0.12, 0xb8cce4, 0.38, 1.45, 0.05, 0.35);
+    },
+    moth(m) {
+      const g = m.group, mat = m.mat;
+      m.body = part(g, mat, 0.12, 0.12, 0.34, 0x8a7a50, 0, 0.15, 0);
+      const wm = new THREE.MeshBasicMaterial({ color: 0xf0ff9a, side: THREE.DoubleSide }); m.extraMats.push(wm);
+      m.wingL = new THREE.Group(); m.wingR = new THREE.Group(); m.wingL.position.set(-0.05, 0.18, 0); m.wingR.position.set(0.05, 0.18, 0); g.add(m.wingL, m.wingR);
+      part(m.wingL, wm, 0.42, 0.02, 0.3, 0, -0.21, 0, 0); part(m.wingR, wm, 0.42, 0.02, 0.3, 0, 0.21, 0, 0);
+    },
+    sporekin(m) {
+      const g = m.group, mat = m.mat;
+      m.body = part(g, mat, 0.36, 0.4, 0.36, 0xe0d8c0, 0, 0.3, 0);
+      m.head = part(g, mat, 0.72, 0.3, 0.72, 0x8a4ac8, 0, 0.62, 0);
+      const em = eyeMat(0xe8c8ff), dk = eyeMat(0x221a2a); m.extraMats.push(em, dk);
+      [[-0.2, 0.15], [0.18, -0.2], [0.05, 0.25], [-0.1, -0.15]].forEach(([x, z]) => part(m.head, em, 0.12, 0.04, 0.12, 0, x, 0.15, z));
+      part(m.body, dk, 0.06, 0.08, 0.02, 0, -0.08, 0.05, 0.185); part(m.body, dk, 0.06, 0.08, 0.02, 0, 0.08, 0.05, 0.185);
+      m.legL = part(g, mat, 0.12, 0.14, 0.12, 0xc8c0a8, -0.1, 0.12, 0, 0.07); m.legR = part(g, mat, 0.12, 0.14, 0.12, 0xc8c0a8, 0.1, 0.12, 0, 0.07);
+    },
+    skyray(m) {
+      const g = m.group, mat = m.mat;
+      m.body = part(g, mat, 0.7, 0.16, 1.0, 0x8ab8e8, 0, 0.2, 0);
+      m.wingL = new THREE.Group(); m.wingR = new THREE.Group(); m.wingL.position.set(-0.35, 0.2, 0); m.wingR.position.set(0.35, 0.2, 0); g.add(m.wingL, m.wingR);
+      part(m.wingL, mat, 0.9, 0.08, 0.8, 0xa8d0f4, -0.45, 0, -0.05); part(m.wingR, mat, 0.9, 0.08, 0.8, 0xa8d0f4, 0.45, 0, -0.05);
+      const em = eyeMat(0xffffff); m.extraMats.push(em);
+      part(m.body, em, 0.06, 0.06, 0.02, 0, -0.2, 0.06, 0.5); part(m.body, em, 0.06, 0.06, 0.02, 0, 0.2, 0.06, 0.5);
+      m.tail = [part(g, mat, 0.06, 0.06, 1.2, 0x6a98c8, 0, 0.2, -1.05)];
+    },
+    keeper(m) {
+      const g = m.group, mat = m.mat;
+      m.body = part(g, mat, 0.56, 0.9, 0.36, 0x4a3426, 0, 1.0, 0);
+      part(g, mat, 0.62, 0.5, 0.42, 0x3a281c, 0, 0.35, 0);
+      m.head = part(g, mat, 0.42, 0.42, 0.42, 0xc8a080, 0, 1.68, 0);
+      part(m.head, mat, 0.5, 0.36, 0.5, 0x2e2018, 0, 0.12, -0.04);
+      part(m.head, mat, 0.3, 0.12, 0.06, 0xe8e0d0, 0, -0.14, 0.21);
+      const em = eyeMat(0x1a1a1a), lamp = eyeMat(0xffc860); m.extraMats.push(em, lamp);
+      part(m.head, em, 0.07, 0.05, 0.02, 0, -0.09, 0.03, 0.215); part(m.head, em, 0.07, 0.05, 0.02, 0, 0.09, 0.03, 0.215);
+      m.armL = part(g, mat, 0.16, 0.7, 0.16, 0x4a3426, -0.36, 1.4, 0, 0.35);
+      m.armR = part(g, mat, 0.16, 0.7, 0.16, 0x4a3426, 0.36, 1.4, 0.1, 0.35); m.armR.rotation.x = -0.5;
+      part(m.armR, lamp, 0.2, 0.26, 0.2, 0, 0, -0.75, 0);
+    },
     buck(m) {
       const g = m.group, mat = m.mat;
       m.body = part(g, mat, 0.7, 0.6, 1.2, 0x7a5a3a, 0, 0.95, 0);
@@ -147,6 +228,14 @@
   const DEF = LL.MOBDEF = {
     gloomling: { name: 'Gloomling', hp: 12, speed: 3.2, hw: 0.3, h: 1.9, hostile: true, dmg: 3, reach: 1.5, cd: 1.0, avoidLight: true, drops: r => r() < 0.65 ? [[I.DUSK_PEARL, 1]] : [] },
     brute: { name: 'Gloom Brute', hp: 36, speed: 2.5, hw: 0.55, h: 2.6, hostile: true, dmg: 6, reach: 2.0, cd: 1.5, avoidLight: true, tough: true, drops: r => [[I.GLOOM_HEART, 1], [I.DUSK_PEARL, 1 + (r() < 0.5 ? 1 : 0)]] },
+    boar: { name: 'Thornback Boar', hp: 14, speed: 2.2, hw: 0.45, h: 1.05, neutral: true, dmg: 3, reach: 1.6, cd: 1.2, drops: r => [[I.RAW_VENISON, 1 + (r() < 0.6 ? 1 : 0)], ...(r() < 0.5 ? [[I.HIDE, 1]] : [])] },
+    lurker: { name: 'Mire Lurker', hp: 16, speed: 3.4, hw: 0.5, h: 0.7, hostile: true, dmg: 3, reach: 1.7, cd: 1.1, drops: r => [[B.CLAY, 1 + (r() < 0.5 ? 1 : 0)], ...(r() < 0.5 ? [[I.GLOWCAP_FOOD, 1]] : [])] },
+    beetle: { name: 'Emberbeetle', hp: 12, speed: 1.8, hw: 0.42, h: 0.62, neutral: true, dmg: 2, reach: 1.4, cd: 1.2, drops: r => [[I.CINDERITE, 1 + (r() * 3 | 0)], ...(r() < 0.12 ? [[B.EMBER_ORE, 1]] : [])] },
+    wraith: { name: 'Frost Wraith', hp: 10, speed: 3.6, hw: 0.35, h: 1.6, hostile: true, fly: true, dmg: 2, reach: 1.7, cd: 1.3, avoidLight: true, drops: r => [...(r() < 0.5 ? [[I.DUSK_PEARL, 1]] : []), [B.ICE, 1]] },
+    moth: { name: 'Glowmoth', hp: 3, speed: 2, hw: 0.2, h: 0.3, passive: true, fly: true, drops: r => [[I.MOTH_DUST, 1 + (r() < 0.5 ? 1 : 0)]] },
+    sporekin: { name: 'Sporekin', hp: 6, speed: 1.8, hw: 0.3, h: 0.8, passive: true, drops: r => [[I.SPORE_SAC, 1], ...(r() < 0.5 ? [[I.GLOWCAP_FOOD, 1]] : [])] },
+    skyray: { name: 'Skyray', hp: 12, speed: 3, hw: 0.7, h: 0.45, passive: true, fly: true, drops: r => [[I.SILK, 1 + (r() < 0.5 ? 1 : 0)]] },
+    keeper: { name: 'Lantern Keeper', hp: 9999, speed: 0, hw: 0.3, h: 1.9, npc: true, drops: () => [] },
     buck: { name: 'Bramblebuck', hp: 10, speed: 2.2, hw: 0.42, h: 1.4, passive: true, drops: r => [[I.RAW_VENISON, 1 + (r() < 0.5 ? 1 : 0)], ...(r() < 0.7 ? [[I.HIDE, 1 + (r() < 0.4 ? 1 : 0)]] : [])] },
     crawler: { name: 'Gloam Crawler', hp: 14, speed: 4.4, hw: 0.55, h: 0.8, hostile: true, dmg: 4, reach: 1.7, cd: 0.9, drops: r => [[I.SILK, 1 + (r() < 0.5 ? 1 : 0)]] },
     wisp: { name: 'Gale Wisp', hp: 10, speed: 4, hw: 0.35, h: 0.9, hostile: true, fly: true, drops: r => [[I.GALE_ESSENCE, 1]] },
@@ -178,7 +267,14 @@
         this.game.particles.burst(this.pos.x, this.pos.y + this.h * 0.6, this.pos.z, [140, 80, 200], 6, 2.5);
         return;
       }
+      if (this.def.npc) { if (!this._grumble) { this._grumble = 1; this.game.toast('The Lantern Keeper steps back. "Easy, traveller."'); setTimeout(() => this._grumble = 0, 4000); } return; }
       this.lastAttacker = attacker || null;
+      if (this.def.neutral) this.angry = 10;
+      if (this.type === 'beetle') {
+        const g = this.game, P = g.player;
+        g.particles.burst(this.pos.x, this.pos.y + 0.6, this.pos.z, [255, 140, 50], 24, 4);
+        if (!attacker && !P.dead && P.pos.distanceTo(this.pos) < 3) P.hurt(2, this.pos, 'an Emberbeetle', 4);
+      }
       if (this.shield > 0 && this.type !== 'maw') dmg *= 0.5;
       this.hp -= dmg; this.hurtT = 0.3;
       if (from) { const dx = this.pos.x - from.x, dz = this.pos.z - from.z, l = Math.hypot(dx, dz) || 1; const k = this.def.boss ? kb * 0.15 : kb; this.vel.x += dx / l * k; this.vel.z += dz / l * k; if (!this.fly) this.vel.y = Math.max(this.vel.y, 4.5); }
@@ -232,6 +328,34 @@
         } else this.wander(dt);
         const ward = g.nearWard(this.pos, 16);
         if (ward && this.shield <= 0) { const wx = this.pos.x - ward.x, wz = this.pos.z - ward.z, wl = Math.hypot(wx, wz) || 1; wantX = wx / wl; wantZ = wz / wl; this.wdir = null; }
+      } else if (this.def.neutral) {
+        this.angry = (this.angry || 0) - dt;
+        if (this.angry > 0 && alive && dist < 24) {
+          wantX = dx / (dist || 1); wantZ = dz / (dist || 1);
+          if (this.type === 'boar') speed = dist > 3 ? 5.6 : 3.2;
+          if (dist < this.def.reach && Math.abs(dy) < 1.6 && this.cd <= 0) { this.cd = this.def.cd; P.hurt(this.def.dmg, this.pos, this.def.name, this.type === 'boar' ? 9 : 5); }
+        } else this.wander(dt);
+      } else if (this.type === 'lurker') {
+        const hidden = this.inWater && !(alive && dist < 6 && Math.abs(dy) < 3);
+        this.submerged = hidden && !(this.chaseT > 0);
+        this.chaseT = (this.chaseT || 0) - dt;
+        if (!hidden && alive && dist < 14) {
+          if (this.chaseT <= 0 && this.inWater) { this.vel.y = 7; g.particles.burst(this.pos.x, this.pos.y + 0.5, this.pos.z, [120, 160, 200], 16, 3); }
+          this.chaseT = 3;
+          wantX = dx / (dist || 1); wantZ = dz / (dist || 1);
+          if (dist < this.def.reach && Math.abs(dy) < 1.6 && this.cd <= 0) { this.cd = this.def.cd; P.hurt(this.def.dmg, this.pos, this.def.name); if (!P.remote) P.slowT = 3; }
+        } else if (this.chaseT > 0 && alive) { wantX = dx / (dist || 1); wantZ = dz / (dist || 1); }
+      } else if (this.type === 'sporekin') {
+        if (this.fleeT > 0 && alive) { this.fleeT -= dt; wantX = -dx / (dist || 1); wantZ = -dz / (dist || 1); speed *= 2; }
+        else this.wander(dt);
+        if (this.onGround && (wantX || wantZ || this.wanderMove) && Math.random() < dt * 2) this.vel.y = 4.2;
+      } else if (this.type === 'keeper') {
+        if (alive && dist < 10) this.yaw = Math.atan2(dx, dz);
+        this.vel.x = this.vel.z = 0;
+        LL.physStep(w, this, dt, g.grav);
+        return this.anim(dt, lv);
+      } else if (this.type === 'wraith' || this.type === 'moth' || this.type === 'skyray') {
+        this.airAI(dt, dx, dz, dist, dy, alive, light, P); return this.anim(dt, lv);
       } else if (this.type === 'buck') {
         if (this.fleeT > 0 && alive) { this.fleeT -= dt; wantX = -dx / (dist || 1); wantZ = -dz / (dist || 1); speed *= 1.9; }
         else this.wander(dt);
@@ -262,6 +386,42 @@
       }
       if (this.def.boss) g.ui.boss(this.hp / this.def.hp);
       this.anim(dt, g.world.lightAt(this.pos.x, this.pos.y + 0.5, this.pos.z));
+    }
+    airAI(dt, dx, dz, dist, dy, alive, light, P) {
+      const g = this.game, w = g.world;
+      let tx, ty, tz, sp = this.def.speed;
+      if (this.home == null) this.home = { x: this.pos.x, y: this.pos.y, z: this.pos.z, a: Math.random() * 6.28 };
+      if (this.type === 'wraith') {
+        if (light >= 9 && this.shield <= 0) { this.hp -= dt * 4; if (Math.random() < 0.3) g.particles.add(this.pos.x, this.pos.y + 1, this.pos.z, 0, 0.5, 0, [200, 230, 255], 0.6, -0.2); if (this.hp <= 0) { this.remove(); return; } }
+        if (alive && dist < 24 && light < 9) {
+          tx = P.pos.x; ty = P.pos.y + 0.6 + Math.sin(this.t * 2) * 0.4; tz = P.pos.z;
+          if (dist < this.def.reach && Math.abs(dy) < 1.8 && this.cd <= 0) {
+            this.cd = this.def.cd; P.hurt(this.def.dmg, this.pos, this.def.name, 3);
+            if (!P.remote) { P.warmth = Math.max(0, P.warmth - 18); g.toast('The wraith\'s touch steals your warmth!', 'warn'); }
+            this.attackAnim = 0.3;
+          }
+          if (dist < 0.8) { tx = this.pos.x; tz = this.pos.z; }
+        } else { this.home.a += dt * 0.4; tx = this.home.x + Math.cos(this.home.a) * 6; tz = this.home.z + Math.sin(this.home.a) * 6; ty = this.home.y + 2; }
+      } else if (this.type === 'moth') {
+        if (g.daylight > 0.6 && Math.random() < dt * 0.3) { this.remove(); return; }
+        this.home.a += dt * (0.8 + Math.sin(this.t) * 0.5);
+        tx = this.home.x + Math.cos(this.home.a) * 3 + Math.sin(this.t * 3.1) * 1.2; tz = this.home.z + Math.sin(this.home.a * 1.3) * 3; ty = this.home.y + 1.5 + Math.sin(this.t * 2.3) * 1.2;
+        if (Math.random() < 0.08) g.particles.add(this.pos.x, this.pos.y + 0.1, this.pos.z, 0, -0.3, 0, [230, 255, 140], 0.8, 0.1);
+      } else {
+        const flee = this.fleeT > 0 && alive; if (flee) this.fleeT -= dt;
+        this.home.a += dt * (flee ? 0.9 : 0.25);
+        const R = flee ? 22 : 14;
+        tx = this.home.x + Math.cos(this.home.a) * R; tz = this.home.z + Math.sin(this.home.a) * R; ty = this.home.y + Math.sin(this.t * 0.5) * 2 + (flee ? 4 : 0);
+        sp = flee ? 7 : sp;
+      }
+      const vx = tx - this.pos.x, vy = ty - this.pos.y, vz = tz - this.pos.z, l = Math.hypot(vx, vy, vz) || 1;
+      const s = Math.min(sp, l * 2);
+      this.vel.x += (vx / l * s - this.vel.x) * Math.min(1, 3 * dt);
+      this.vel.y += (vy / l * s - this.vel.y) * Math.min(1, 3 * dt);
+      this.vel.z += (vz / l * s - this.vel.z) * Math.min(1, 3 * dt);
+      if (Math.abs(this.vel.x) + Math.abs(this.vel.z) > 0.1) this.yaw = Math.atan2(this.vel.x, this.vel.z);
+      LL.physStep(w, this, dt, 0);
+      if (this.type === 'skyray' && this.pos.y < 6) this.home.y += 4;
     }
     snuff() {
       const g = this.game, w = g.world;
@@ -350,7 +510,8 @@
       const sw = Math.sin(this.walk) * Math.min(1, sp / 2);
       if (this.legL) { this.legL.rotation.x = sw * 0.8; this.legR.rotation.x = -sw * 0.8; }
       if (this.armL) { this.armL.rotation.x = -sw * 0.6 + (this.attackAnim > 0 ? -1.4 : -0.2); this.armR.rotation.x = sw * 0.6 + (this.attackAnim > 0 ? -1.4 : -0.2); this.attackAnim -= dt; }
-      if (this.legs && this.type === 'buck') this.legs.forEach((l, i) => l.rotation.x = (i === 0 || i === 3 ? sw : -sw) * 0.7);
+      if (this.legs && (this.type === 'buck' || this.type === 'boar' || this.type === 'lurker')) this.legs.forEach((l, i) => l.rotation.x = (i === 0 || i === 3 ? sw : -sw) * 0.7);
+      if (this.legs && this.type === 'beetle') this.legs.forEach((l, i) => { l.rotation.y = Math.sin(this.walk * 1.5 + i) * 0.3; });
       if (this.legs && this.type === 'crawler') this.legs.forEach((l, i) => { l.rotation.y = Math.sin(this.walk * 1.5 + i) * 0.35; });
       if (this.type === 'wisp') {
         this.orbs.forEach((o, i) => { const a = this.t * 3 + i * 2.09; o.position.set(Math.cos(a) * 0.6, 0.45 + Math.sin(a * 1.3) * 0.2, Math.sin(a) * 0.6); });
@@ -359,11 +520,16 @@
       }
       if (this.type === 'maw') { this.ring.rotation.y += dt * 1.2; this.body.rotation.y = Math.sin(this.t) * 0.1; this.pupil.position.x = Math.sin(this.t * 0.7) * 0.3; this.mouth.scale.y = this.phase === 1 ? 3 : 1; }
       if (this.type === 'gloomling') this.group.position.y += Math.sin(this.t * 3) * 0.02;
+      if (this.wingL) { const f = this.type === 'moth' ? Math.sin(this.t * 22) * 0.9 : Math.sin(this.t * 2.2) * 0.35; this.wingL.rotation.z = f; this.wingR.rotation.z = -f; }
+      if (this.type === 'wraith' || this.type === 'skyray') this.tail.forEach((t, i) => { t.position.x = Math.sin(this.t * 3 - i) * 0.08 * (i + 1); });
+      if (this.type === 'beetle' && this.glowMat) { const k = 0.6 + Math.sin(this.t * 4) * 0.4; this.glowMat.color.setRGB(1, 0.35 + k * 0.25, 0.1 * k); }
       // lighting tint
       const l = Math.max((lv >> 4) * g.daylight, lv & 15, g.ambientLevel);
       const b = Math.min(1, LL.bright(l) + 0.06);
       if (this.hurtT > 0) this.mat.color.setRGB(1, 0.35, 0.35); else this.mat.color.setScalar(this.type === 'maw' ? Math.max(0.5, b) : b);
-      this.group.position.set(this.pos.x, this.pos.y, this.pos.z);
+      this.group.position.set(this.pos.x, this.pos.y - (this.submerged ? 0.55 : 0), this.pos.z);
+      if (this.type === 'gloomling') this.group.position.y += Math.sin(this.t * 3) * 0.02;
+      if (this.type === 'wraith') this.group.position.y += Math.sin(this.t * 2) * 0.12;
       this.group.rotation.y = this.yaw;
     }
   }
