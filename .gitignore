@@ -1,0 +1,7 @@
+tools/
+dist/
+world.json
+world.json.tmp
+*.log
+.claude/
+node_modules/
