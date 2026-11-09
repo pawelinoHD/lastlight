@@ -9,7 +9,7 @@
     { f: 'placedBench', t: "Build a Tinker's Bench", h: 'Press E. Turn logs into planks, craft a bench, select it on your hotbar and right-click to place it.' },
     { f: 'gotPick', t: 'Craft a pick', h: 'Stand near your bench, press E and craft a Wooden Pick (it needs Hafts, made from planks).' },
     { f: 'placedHearth', t: 'Kindle a Hearth before nightfall', h: 'Mine slate for cobble and dig up Cinderite (black ore with red sparks). A Hearth warms you, holds back gloomlings and becomes your respawn point.' },
-    { f: 'gotCopper', t: 'Smelt copper', h: 'Copperite (orange ore) needs a Slate Pick. Build a Kiln near your bench and smelt it with Cinderite or Charcoal.' },
+    { f: 'gotCopper', t: 'Smelt copper', h: 'Copperite (orange ore) needs a Slate Pick. Craft a Kiln at your bench, place it and right-click it: ore goes on top, Cinderite or Charcoal below.' },
     { f: 'gotEmberOre', t: 'Find Emberite deep below', h: 'Glowing orange ore near the bottom of the world, below height 21. It needs a Copper Pick. Buried vaults often hide nearby.' },
     { f: 'gotPearls', t: 'Collect 2 Dusk Pearls', h: 'Gloomlings drop them. They come out at night and in dark caves. Light keeps them back, so fight them at the edge of your light.' },
     { f: 'visitedGloam', t: 'Open the way to the Gloam', h: 'Craft a Gloam Waystone (Slate Bricks, Emberite Ingots, Dusk Pearls), place it in the Wildlands and right-click it.' },
@@ -32,6 +32,7 @@
       for (let i = 0; i < 9; i++) ih.appendChild(this.makeSlot('inv', i));
       const eq = $('equip');
       ['Head', 'Body', 'Feet'].forEach((n, i) => { const s = this.makeSlot('equip', i); s.title = n; s.classList.add('eq'); s.insertAdjacentHTML('beforeend', '<span class="eql">' + n + '</span>'); eq.appendChild(s); });
+      $('kin').appendChild(this.makeSlot('kiln', 0)); $('kfuel').appendChild(this.makeSlot('kiln', 1)); $('kout').appendChild(this.makeSlot('kiln', 2));
       const cg = $('chestgrid');
       for (let i = 0; i < 27; i++) cg.appendChild(this.makeSlot('chest', i));
       document.querySelectorAll('#crafttabs button').forEach(b => b.onclick = () => { this.tab = b.dataset.tab; document.querySelectorAll('#crafttabs button').forEach(x => x.classList.toggle('on', x === b)); this.renderCrafting(); LL.sfx.ui(); });
@@ -41,8 +42,8 @@
       $('jclose').onclick = () => game.closePanels(true);
     },
     // ---------- slots ----------
-    arr(c) { const g = this.game; if (c === 'inv') return g.player.inv.s; if (c === 'equip') return g.player.equip; return g.chestSlots(this.chestKey); },
-    accept(c, i, st) { if (!st) return true; if (c === 'equip') { const a = LL.ITEMS[st.id].armor; return !!a && a.slot === i; } return true; },
+    arr(c) { const g = this.game; if (c === 'inv') return g.player.inv.s; if (c === 'equip') return g.player.equip; if (c === 'kiln') return this.kilnKey ? g.kilnState(this.kilnKey).s : null; return g.chestSlots(this.chestKey); },
+    accept(c, i, st) { if (!st) return true; if (c === 'kiln') return i === 0 ? !!LL.findSmelt(st.id) : i === 1 ? !!LL.FUEL_TIME[st.id] : false; if (c === 'equip') { const a = LL.ITEMS[st.id].armor; return !!a && a.slot === i; } return true; },
     makeSlot(c, i, hud) {
       const d = document.createElement('div'); d.className = 'slot'; d.dataset.c = c; d.dataset.i = i; if (hud) d.dataset.hud = 1;
       d.innerHTML = '<img draggable="false"><span class="n"></span><div class="dur"><i></i></div>' + (hud ? '<span class="k">' + (i + 1) + '</span>' : '');
@@ -70,6 +71,7 @@
         document.querySelectorAll('#invpanel .slot').forEach(el => { const a = this.arr(el.dataset.c); if (a) this.fillSlot(el, a[+el.dataset.i]); });
         $('armorval').textContent = g.player.armor();
         if (this.chestKey && g.syncChest) g.syncChest(this.chestKey);
+        if (this.kilnKey && g.syncKiln) g.syncKiln(this.kilnKey, true);
         this.renderCrafting();
       }
       const c = $('cursorItem');
@@ -96,6 +98,8 @@
         const inv = this.game.player.inv.s;
         if (c === 'chest') left = this.moveInto(st, inv, 0, 36, 'inv');
         else if (c === 'equip') left = this.moveInto(st, inv, 9, 36, 'inv') && this.moveInto(st, inv, 0, 9, 'inv');
+        else if (c === 'kiln') left = this.moveInto(st, inv, 0, 36, 'inv');
+        else if (this.kilnKey) { const k = this.arr('kiln'); left = LL.findSmelt(st.id) ? this.moveInto(st, k, 0, 1, 'kiln') : LL.FUEL_TIME[st.id] ? this.moveInto(st, k, 1, 2, 'kiln') : st.n; if (left === st.n) this.game.toast('That cannot go in the kiln.'); }
         else if (this.chestKey) left = this.moveInto(st, this.arr('chest'), 0, 27, 'chest');
         else if (LL.ITEMS[st.id].armor && !this.game.player.equip[LL.ITEMS[st.id].armor.slot]) left = this.moveInto(st, this.game.player.equip, 0, 3, 'equip');
         else left = i < 9 ? this.moveInto(st, inv, 9, 36, 'inv') : this.moveInto(st, inv, 0, 9, 'inv');
@@ -135,11 +139,14 @@
     tip(html) { const t = $('tooltip'); if (!html) { t.style.display = 'none'; return; } t.innerHTML = html; t.style.display = 'block'; },
 
     // ---------- panels ----------
-    openInventory(chestKey) {
+    openInventory(chestKey, kilnKey) {
+      this.kilnKey = kilnKey || null;
+      $('kilnwrap').classList.toggle('hidden', !this.kilnKey);
       const g = this.game; if (g.player.dead) return;
       this.chestKey = chestKey || null;
       $('chestwrap').classList.toggle('hidden', !this.chestKey);
-      $('invright').classList.toggle('hidden', !!this.chestKey);
+      $('invright').classList.toggle('hidden', !!this.chestKey || !!this.kilnKey);
+      if (this.kilnKey) { LL.sfx.place(31); this.kilnGauge(); }
       this.panel = 'inv'; $('invpanel').classList.remove('hidden'); $('journal').classList.add('hidden');
       g.releasePointer();
       if (this.chestKey) LL.sfx.place(65);
@@ -199,7 +206,7 @@
     },
     renderCrafting() {
       const list = $('craftlist'), g = this.game, inv = g.player.inv;
-      const recs = LL.RECIPES.filter(r => (!r.bp || g.known[r.out]) && (this.tab === 'all' || r.cat === this.tab || (this.tab === 'build' && r.cat === 'mats')));
+      const recs = LL.RECIPES.filter(r => !r.smelt && (!r.bp || g.known[r.out]) && (this.tab === 'all' || r.cat === this.tab || (this.tab === 'build' && r.cat === 'mats')));
       const scored = recs.map(r => ({ r, c: this.canCraft(r) })).sort((a, b) => (b.c.ok - a.c.ok) || (b.c.stOk - a.c.stOk));
       const html = scored.map(({ r, c }) => {
         const ri = LL.RECIPES.indexOf(r);
@@ -213,8 +220,9 @@
         const bpTag = r.bp ? '<span class="need bp">Blueprint</span>' : '';
         return '<div class="rec ' + (c.ok ? 'ok' : c.stOk ? 'miss' : 'far') + '" data-r="' + ri + '"><img class="out" src="' + LL.iconURL(r.out) + '"><div class="rinfo"><div class="rn">' + LL.itemName(r.out) + (r.n > 1 ? ' <i>×' + r.n + '</i>' : '') + stTag + bpTag + '</div><div class="ings">' + ins + '</div></div></div>';
       }).join('');
+      const kilnNote = this.tab === 'smelt' ? '<div class="bphint">Ores, sand, clay, logs and raw food are smelted inside a Kiln: place one and right-click it.</div>' : '';
       const unknown = LL.BLUEPRINTS.filter(([, o]) => !g.known[o]).length;
-      const foot = unknown ? '<div class="bphint">' + unknown + ' more recipes are lost. Find blueprints in ruin caches.</div>' : '';
+      const foot = kilnNote + (unknown ? '<div class="bphint">' + unknown + ' more recipes are lost. Find blueprints in ruin caches.</div>' : '');
       if (list._html !== html + foot) {
         list.innerHTML = html + foot; list._html = html + foot;
         list.querySelectorAll('.rec').forEach(el => {
@@ -240,6 +248,14 @@
       this.refresh();
     },
 
+    kilnGauge() {
+      if (!this.kilnKey) return;
+      const st = this.game.kilnState(this.kilnKey);
+      $('kflame').firstChild.style.height = Math.max(0, Math.min(1, st.burn / (st.burnMax || 1))) * 100 + '%';
+      $('karrow').firstChild.style.width = Math.min(1, st.prog / LL.SMELT_TIME) * 100 + '%';
+      const inp = st.s[0], rec = inp && LL.findSmelt(inp.id);
+      $('kstatus').textContent = !inp ? 'Put ore, sand, clay, logs or raw food on top.' : !rec ? '' : inp.n < rec.n ? 'Needs ' + rec.n + ' ' + LL.itemName(inp.id) + ' per batch.' : (rec.fuel && st.burn <= 0 && !st.s[1]) ? 'Add fuel below: Cinderite, Charcoal or Peat.' : st.s[2] && st.s[2].id !== rec.out ? 'Take out the finished items first.' : 'Smelting into ' + LL.itemName(rec.out) + '…';
+    },
     // ---------- trading ----------
     openTrade(offers, doTrade) {
       const g = this.game; if (g.player.dead) return;

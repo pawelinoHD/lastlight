@@ -96,6 +96,7 @@ button{font-family:inherit}
 .panel .x:hover{color:var(--ember2)}
 #invpanel{display:flex;gap:22px;width:min(1000px,96vw)}
 #invleft{flex:none}
+#invpanel:has(#invright.hidden){width:auto}
 #invleft .grid{display:grid;grid-template-columns:repeat(9,48px);gap:4px}
 #invhot{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line2)}
 #invpanel .slot{cursor:pointer}
@@ -266,6 +267,27 @@ button{font-family:inherit}
 .tgive,.tget{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;min-width:0}
 .tgive small{display:block;font-weight:600;color:var(--muted);font-size:11px}
 .tarrow{color:var(--ember)}
+#lookbox{position:relative;transform:none;left:auto;top:auto;margin-top:8px;display:flex;gap:18px;align-items:center;max-width:94vw;flex-wrap:wrap;justify-content:center}
+#lookprev{width:96px;height:192px;image-rendering:pixelated;background:radial-gradient(circle at 50% 60%,rgba(243,166,74,.18),transparent 70%);border-radius:8px}
+#lookrows{display:flex;flex-direction:column;gap:7px}
+.lrow{display:flex;align-items:center;gap:10px;font-size:13px}
+.lrow>span{width:72px;color:var(--muted)}
+.lopts{display:flex;gap:5px;flex-wrap:wrap}
+.lsw{width:22px;height:22px;border-radius:4px;border:2px solid rgba(0,0,0,.4);cursor:pointer;padding:0}
+.lsw.on{border-color:var(--ember2);box-shadow:0 0 0 1px var(--ember)}
+.lstyle{background:var(--panel2);border:1px solid var(--line2);color:var(--muted);padding:3px 9px;border-radius:4px;cursor:pointer;font-size:12px;font-family:inherit}
+.lstyle.on{color:var(--ember2);border-color:var(--ember)}
+.lsw:focus-visible,.lstyle:focus-visible{outline:2px solid var(--ember2)}
+#kilnwrap{margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--line2)}
+.kiln{display:flex;align-items:center;gap:22px;padding:10px 6px}
+.kcol{display:flex;flex-direction:column;align-items:center;gap:6px}
+#kflame{width:22px;height:26px;background:rgba(0,0,0,.45);border-radius:4px 4px 10px 10px;position:relative;overflow:hidden;border:1px solid var(--line2)}
+#kflame i{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(0deg,#e04a1a,#ffb04a,#ffe7a0)}
+#karrow{width:70px;height:14px;background:rgba(0,0,0,.45);border-radius:7px;overflow:hidden;border:1px solid var(--line2)}
+#karrow i{display:block;height:100%;width:0;background:linear-gradient(90deg,#c46a1a,#ffd27a)}
+#kout .slot{width:56px;height:56px;border-color:var(--ember)}
+#kout .slot img{left:8px;top:8px;width:40px;height:40px}
+#kstatus{font-size:12.5px;color:var(--ember2);min-height:16px}
 @media (max-width:700px){#bars{width:92vw}#objective{max-width:60vw}.slot{width:36px;height:36px}.slot img{width:26px;height:26px;left:4px;top:4px}#invleft .grid{grid-template-columns:repeat(9,36px)}#invpanel{flex-direction:column;max-height:94vh;overflow:auto}}
 </style>
 </head>
@@ -303,6 +325,7 @@ button{font-family:inherit}
 <div id="invpanel" class="panel hidden">
   <button class="x" id="invclose">×</button>
   <div id="invleft">
+    <div id="kilnwrap" class="hidden"><h2>Kiln</h2><div class="kiln"><div class="kcol"><div id="kin"></div><div id="kflame" title="Fuel burning"><i></i></div><div id="kfuel"></div></div><div id="karrow" title="Smelting progress"><i></i></div><div id="kout"></div></div><div id="kstatus"></div><div class="help">Top: what to smelt · Bottom: fuel (Cinderite heats 10 items, Charcoal 6, Peat 3) · Shift-click items in your pack to load the kiln</div></div>
     <div id="chestwrap" class="hidden"><h2>Storage Chest</h2><div class="grid" id="chestgrid"></div></div>
     <h2>Pack</h2>
     <div id="equip"></div>
@@ -339,7 +362,8 @@ button{font-family:inherit}
   <button class="btn" id="btnContinue" disabled>Continue</button>
   <div class="row"><input id="seed" placeholder="World seed (optional)" maxlength="32"><button class="btn small" id="btnNew">New World</button></div>
   <div id="mpbox"><div class="mph">Multiplayer</div><div class="row"><input id="mpname" placeholder="Your name" maxlength="16"><input id="mpserver" placeholder="Server, e.g. 192.168.1.20:8840"><button class="btn small" id="btnJoin">Join</button></div><div id="mpstatus">Host a world with Lastlight-Server.bat, then share the address.</div></div>
-  <button class="btn" id="btnHelp">How to Play</button>
+  <div class="row"><button class="btn small" id="btnLook">Your Look</button><button class="btn small" id="btnHelp">How to Play</button></div>
+  <div id="lookbox" class="panel hidden"><canvas id="lookprev" width="96" height="192"></canvas><div id="lookrows"></div></div>
   <div id="helpbox" class="panel hidden" style="position:relative;transform:none;left:auto;top:auto;margin-top:8px">
     <h2>How to play</h2>
     <div class="cols">
@@ -352,6 +376,7 @@ button{font-family:inherit}
       <div><kbd>1-9</kbd> / wheel: hotbar</div>
       <div><kbd>T</kbd> chat · <kbd>Tab</kbd> players (online)</div>
       <div><kbd>P</kbd> choose a pending perk</div>
+      <div><kbd>F5</kbd> / <kbd>V</kbd> camera view</div>
       <div><kbd>Esc</kbd> pause &amp; settings</div>
     </div>
     <p><b style="color:var(--ember2)">Vigor</b> is your health. Eat to restore it. <b style="color:var(--warm)">Warmth</b> drains at night, in the cold and in the Gloam. Stand by a Hearth or Lantern, or eat Emberberries, to warm up. If warmth runs out, you start losing vigor.</p>
@@ -405,6 +430,7 @@ button{font-family:inherit}
 <script src="js/entities.js"></script>
 <script src="js/player.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/avatar.js"></script>
 <script src="js/progress.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/net.js"></script>

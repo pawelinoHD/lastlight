@@ -106,9 +106,10 @@ function handle(c, m) {
     const taken = n => [...clients.values()].some(o => o.name && o.name.toLowerCase() === n.toLowerCase());
     let k = 2; const base = name; while (taken(name)) name = base + k++;
     c.name = name;
-    const others = [...clients.values()].filter(o => o !== c && o.name).map(o => ({ id: o.id, name: o.name, state: o.state }));
+    c.look = {}; if (m.look && typeof m.look === 'object') for (const k of ['skin', 'hair', 'style', 'eyes', 'shirt', 'pants']) c.look[k] = Math.max(0, Math.min(9, m.look[k] | 0));
+    const others = [...clients.values()].filter(o => o !== c && o.name).map(o => ({ id: o.id, name: o.name, state: o.state, look: o.look }));
     wsSend(c, { t: 'welcome', id: c.id, name, world: { seed: W.seed, edits: W.edits, chests: W.chests, opened: W.opened, day: W.day, phase: W.phase, victory: W.victory, dayLen: DAY_LEN }, pdata: W.players[name.toLowerCase()] || null, players: others });
-    broadcast({ t: 'join', id: c.id, name }, c);
+    broadcast({ t: 'join', id: c.id, name, look: c.look }, c);
     console.log(name + ' joined (' + clients.size + ' online)');
     return;
   }

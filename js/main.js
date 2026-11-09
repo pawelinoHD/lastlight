@@ -169,7 +169,7 @@
       else { gid = get[0]; gn = get[1]; }
       inv.take(give[0], give[1]);
       const left = inv.add(gid, gn); if (left) G.spawnDrop(gid, left, G.player.pos.x, G.player.pos.y + 1, G.player.pos.z);
-      LL.sfx.craft(); G.onPickup(gid, gn); Prog.addXP(G, 3, 'trade'); G.stats.trades = (G.stats.trades || 0) + 1; Prog.bountyEvent(G, 'trade', 'any', 1);
+      LL.sfx.trade(); G.onPickup(gid, gn); Prog.addXP(G, 3, 'trade'); G.stats.trades = (G.stats.trades || 0) + 1; Prog.bountyEvent(G, 'trade', 'any', 1);
       G.toast('Traded for ' + gn + ' ' + LL.itemName(gid) + '.', 'good');
       return true;
     });
@@ -318,6 +318,11 @@
     if (ORE_XP[id]) Prog.addXP(G, ORE_XP[id], 'ore');
     Prog.bountyEvent(G, 'mine', id, 1);
     if (id === B.CROP2) G.stats.harvest++;
+    if (id === B.KILN) {
+      const c = G.chests[G.dimKey], key = 'kiln@' + x + ',' + y + ',' + z;
+      if (c && c[key]) { for (const st of c[key].s) if (st) G.spawnDrop(st.id, st.n, x + 0.5, y + 0.5, z + 0.5); delete c[key]; if (G.mp) Net.send({ t: 'chest', dim: G.dimKey, key, slots: null }); }
+      if (LL.UI.kilnKey === x + ',' + y + ',' + z) G.closePanels(false);
+    }
     if (id === B.CHEST) {
       const c = G.chests[G.dimKey], key = x + ',' + y + ',' + z;
       if (c && c[key]) { for (const st of c[key]) if (st) G.spawnDrop(st.id, st.n, x + 0.5, y + 0.5, z + 0.5, st.dur); delete c[key]; if (G.mp) Net.send({ t: 'chest', dim: G.dimKey, key, slots: null }); }
@@ -385,7 +390,7 @@
     const c = G.chests[dim] || (G.chests[dim] = {});
     Net.lastChest[dim + ':' + key] = JSON.stringify(slots);
     if (slots == null) delete c[key]; else c[key] = slots;
-    if (LL.UI.panel === 'inv' && LL.UI.chestKey === key && dim === G.dimKey) LL.UI.refresh();
+    if (LL.UI.panel === 'inv' && dim === G.dimKey && (LL.UI.chestKey === key || 'kiln@' + LL.UI.kilnKey === key)) LL.UI.refresh();
   };
   G.remoteVictory = (name) => {
     if (G.flags.victory) return;
@@ -682,6 +687,20 @@
   };
   $('btnContinue').onclick = () => { LL.sfx.init(); $('title').classList.add('hidden'); if (!loadSave()) { $('title').classList.remove('hidden'); return; } G.lockPointer(); };
   $('btnHelp').onclick = () => $('helpbox').classList.toggle('hidden');
+  try { G.look = LL.cleanLook(JSON.parse(store.get('lastlight_look') || 'null')); } catch (e) { G.look = LL.cleanLook(null); }
+  function renderLook() {
+    const O = LL.LOOK_OPTIONS, labels = { skin: 'Skin', hair: 'Hair', style: 'Hair style', eyes: 'Eyes', shirt: 'Shirt', pants: 'Trousers' };
+    $('lookrows').innerHTML = Object.keys(labels).map(k => '<div class="lrow"><span>' + labels[k] + '</span><div class="lopts">' + O[k].map((v, i) => k === 'style'
+      ? '<button class="lstyle' + (G.look[k] === i ? ' on' : '') + '" data-k="' + k + '" data-i="' + i + '">' + v + '</button>'
+      : '<button class="lsw' + (G.look[k] === i ? ' on' : '') + '" data-k="' + k + '" data-i="' + i + '" style="background:' + v + '" aria-label="' + labels[k] + ' ' + (i + 1) + '"></button>').join('') + '</div></div>').join('');
+    $('lookrows').querySelectorAll('button').forEach(b => b.onclick = () => {
+      G.look[b.dataset.k] = +b.dataset.i; store.set('lastlight_look', JSON.stringify(G.look)); LL.sfx.init(); LL.sfx.ui();
+      if (G.selfAvatar) G.selfAvatar.setLook(G.look);
+      renderLook();
+    });
+    LL.drawLookPreview($('lookprev'), G.look);
+  }
+  $('btnLook').onclick = () => { $('lookbox').classList.toggle('hidden'); if (!$('lookbox').classList.contains('hidden')) renderLook(); };
   try { $('mpname').value = store.get('lastlight_name') || ''; $('mpserver').value = store.get('lastlight_server') || ''; } catch (e) { }
   if (window.LASTLIGHT_STATIC) {
     const mpRow = $('mpbox').querySelector('.row'); mpRow.hidden = true; mpRow.style.display = 'none';
@@ -715,13 +734,14 @@
     if (e.code === 'KeyP' && !G.paused && !P.dead && G.pendingPerks) Prog.offerPerk(G);
     if (G.mp && (e.code === 'KeyT' || e.code === 'Enter') && !LL.UI.panel && !Net.chatOpen) { e.preventDefault(); G.inp.f = G.inp.b = G.inp.l = G.inp.r = G.inp.jump = 0; Net.openChat(); }
     if (G.mp && e.code === 'Tab') { e.preventDefault(); Net.renderList(true); }
+    if (e.code === 'F5' || e.code === 'KeyV') { e.preventDefault(); G.thirdPerson = ((G.thirdPerson || 0) + 1) % 3; G.toast(['First person', 'Third person (behind)', 'Third person (front)'][G.thirdPerson]); }
     if (e.code === 'KeyJ') { if (!G.paused && !P.dead) LL.UI.toggleJournal(); }
     if (e.code === 'Escape' && LL.UI.panel) { G.closePanels(false); showPause(true); }
     if (e.code.startsWith('Digit')) { const n = +e.code.slice(5); if (n >= 1 && n <= 9) { P.inv.sel = n - 1; LL.UI.refresh(); LL.UI.showItemName(); } }
     if (e.code === 'KeyQ' && G.inputLocked()) {
       const h = P.inv.held(); if (h) {
         const n = e.ctrlKey ? h.n : 1;
-        const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        const cp = Math.cos(P.pitch), dir = new THREE.Vector3(-Math.sin(P.yaw) * cp, Math.sin(P.pitch), -Math.cos(P.yaw) * cp);
         const d = new LL.Drop(G, h.id, n, h.dur, P.pos.x + dir.x * 0.6, P.pos.y + 1.3, P.pos.z + dir.z * 0.6);
         d.vel.set(dir.x * 6, dir.y * 6 + 2, dir.z * 6); d.age = -1; G.drops.push(d);
         P.inv.useHeld(n); LL.UI.refresh();
@@ -808,7 +828,7 @@
     // underwater
     const P = G.player;
     const headId = G.world.getBlock(Math.floor(P.pos.x), Math.floor(P.pos.y + P.eye), Math.floor(P.pos.z));
-    const under = LL.RT[headId] === 4;
+    const under = LL.RT[headId] === 4; G.underwater = under;
     $('underwater').style.display = under ? 'block' : 'none';
     if (under) { bg = tmpC.copy(SKY.water).multiplyScalar(0.4 + G.daylight * 0.6); far = 18; near = 2; }
     scene.background = bg; U.fogColor.value.copy(bg);
@@ -823,7 +843,19 @@
   }
 
   // ---------- warmth & vitals ----------
-  let hearthScanT = 0, nearHearth = false;
+  let hearthScanT = 0, nearHearth = false, waterScanT = 0, nearWater = false;
+  function soundscape(dt) {
+    const P = G.player, w = G.world;
+    waterScanT -= dt;
+    if (waterScanT <= 0) {
+      waterScanT = 1; nearWater = false;
+      const px = Math.floor(P.pos.x), py = Math.floor(P.pos.y), pz = Math.floor(P.pos.z);
+      for (let y = -2; y <= 1 && !nearWater; y++) for (let z = -4; z <= 4 && !nearWater; z += 2) for (let x = -4; x <= 4; x += 2) if (LL.RT[w.getBlock(px + x, py + y, pz + z)] === 4) { nearWater = true; break; }
+    }
+    LL.sfx.listener(P.pos, P.yaw);
+    const lv = w.lightAt(P.pos.x, P.pos.y + 1, P.pos.z);
+    LL.sfx.ambience(dt, { dim: G.dimKey, biome: G.biome, daylight: G.daylight, skyLight: G.dimKey === 'gloam' ? 0 : (lv >> 4), y: P.pos.y, inWater: P.inWater, underwater: G.underwater, nearWater, nearFire: nearHearth, umbral: G.umbralActive && G.daylight < 0.5 });
+  }
   function vitals(dt) {
     const P = G.player, w = G.world;
     if (P.dead) return;
@@ -922,6 +954,51 @@
     }
   }
 
+  // ---------- kilns: timed smelting with fuel ----------
+  G.kilnState = key => {
+    const c = G.chests[G.dimKey] || (G.chests[G.dimKey] = {}), k = 'kiln@' + key;
+    return c[k] || (c[k] = { s: [null, null, null], burn: 0, burnMax: 1, prog: 0 });
+  };
+  G.syncKiln = (key, mine) => {
+    const st = G.kilnState(key);
+    if (mine && G.mp) st.owner = Net.id;
+    if (!G.mp) return;
+    const sj = JSON.stringify(st), k = G.dimKey + ':kiln@' + key;
+    if (Net.lastChest[k] !== sj) { Net.lastChest[k] = sj; Net.send({ t: 'chest', dim: G.dimKey, key: 'kiln@' + key, slots: st }); }
+  };
+  let kilnSyncT = 0;
+  function kilnTick(dt) {
+    const c = G.chests[G.dimKey]; if (!c) return;
+    kilnSyncT -= dt;
+    const P = G.player;
+    for (const k in c) {
+      if (k.slice(0, 5) !== 'kiln@') continue;
+      const st = c[k], key = k.slice(5);
+      if (G.mp && st.owner && st.owner !== Net.id) continue;
+      const S = st.s, inp = S[0], rec = inp && LL.findSmelt(inp.id);
+      const room = rec && inp.n >= rec.n && (!S[2] || (S[2].id === rec.out && S[2].n + rec.outN <= LL.maxStack(rec.out)));
+      let changed = false, active = false;
+      if (room) {
+        if (rec.fuel && st.burn <= 0 && S[1] && LL.FUEL_TIME[S[1].id]) { st.burn = st.burnMax = LL.FUEL_TIME[S[1].id]; S[1].n--; if (!S[1].n) S[1] = null; changed = true; }
+        if (!rec.fuel || st.burn > 0) {
+          active = true; st.prog += dt; if (rec.fuel) st.burn -= dt;
+          if (st.prog >= LL.SMELT_TIME) {
+            st.prog = 0; inp.n -= rec.n; if (!inp.n) S[0] = null;
+            if (S[2]) S[2].n += rec.outN; else S[2] = { id: rec.out, n: rec.outN };
+            changed = true; G.onCrafted(rec.out, rec.outN);
+          }
+        } else st.prog = Math.max(0, st.prog - dt * 2);
+      } else if (st.prog) { st.prog = 0; changed = true; }
+      if (active) {
+        const [x, y, z] = key.split(',').map(Number);
+        if (Math.abs(x - P.pos.x) < 24 && Math.abs(z - P.pos.z) < 24 && Math.random() < dt * 6) G.particles.add(x + 0.5 + (Math.random() - 0.5) * 0.4, y + 1.05, z + 0.5 + (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.3, 1.2, (Math.random() - 0.5) * 0.3, Math.random() < 0.3 ? [255, 150, 60] : [90, 86, 84], 1.6, -0.15);
+      }
+      if (LL.UI.panel === 'inv' && LL.UI.kilnKey === key) { if (changed) LL.UI.refresh(); LL.UI.kilnGauge(); }
+      if (changed || (active && kilnSyncT <= 0)) G.syncKiln(key, false);
+    }
+    if (kilnSyncT <= 0) kilnSyncT = 2;
+  }
+
   // ---------- day events ----------
   G.isUmbralDay = d => G.flags.victory ? d % 7 === 0 : d % 4 === 0;
   function onDusk() {
@@ -976,7 +1053,7 @@
   }
 
   // ---------- main loop ----------
-  let last = performance.now(), saveT = 0, prevBiome = -1, ambT = 0, lastHint = '';
+  let last = performance.now(), saveT = 0, prevBiome = -1, ambT = 0, lastHint = '', camDist = 0.5;
   const HINTS = { [B.TRADE_STALL]: 'Trade Stall · right-click to trade', [B.EMBER_ANVIL]: 'Ember Anvil · right-click with a worn tool to repair it', [B.SUNWELL]: 'Sunwell · right-click for a blessing (once a day)', [B.GLOOM_RIFT]: 'Gloom Rift · break it with a pick to stop the gloomlings', [B.CACHE]: 'Ruin Cache · right-click to open', [B.CHEST]: 'Chest · right-click to open', [B.BENCH]: "Tinker's Bench · right-click to craft", [B.KILN]: 'Kiln · right-click to smelt', [B.HEARTH]: 'Hearth · right-click to make it your respawn point' };
   function frame(now) {
     requestAnimationFrame(frame);
@@ -1013,7 +1090,9 @@
       for (const p of G.projectiles) p.update(dt); G.projectiles = G.projectiles.filter(p => !p.dead);
       spawning(dt);
       vitals(dt);
+      soundscape(dt);
       slowTick(dt);
+      kilnTick(dt);
       // regrow bushes
       for (const r of G.regrow) { r.t -= dt; if (r.t <= 0 && G.world.getBlock(r.x, r.y, r.z) === B.BARE_BUSH) G.world.setBlock(r.x, r.y, r.z, B.BERRY_BUSH); }
       G.regrow = G.regrow.filter(r => r.t > 0);
@@ -1032,15 +1111,35 @@
       }
       G.world.tick(P.pos.x, P.pos.z, G.settings.rd, 7);
       saveT += dt; if (saveT > 30) { saveT = 0; save(); }
-      const mood = G.dimKey === 'gloam' ? 'gloam' : G.dimKey === 'sky' ? 'sky' : (G.daylight < 0.4 ? 'night' : 'day');
+      const mood = G.dimKey === 'gloam' ? 'gloam' : G.dimKey === 'sky' ? 'sky' : G.umbralActive ? 'umbral' : (G.daylight < 0.4 ? 'night' : 'day');
       LL.music(dt, mood);
     }
     // camera
     const sprintFov = (G.inp.sprint && G.inp.f && !LL.UI.panel) ? 6 : 0;
     camera.fov += (G.settings.fov + sprintFov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix();
     const bob = P.onGround ? Math.sin(P.bob * 2) * 0.04 : 0;
-    camera.position.set(P.pos.x, P.pos.y + P.eye + bob, P.pos.z);
-    camera.rotation.set(P.pitch, P.yaw, 0);
+    const ex = P.pos.x, ey = P.pos.y + P.eye + (G.thirdPerson ? 0 : bob), ez = P.pos.z;
+    if (G.thirdPerson && !P.dead) {
+      const cp = Math.cos(P.pitch), sgn = G.thirdPerson === 1 ? -1 : 1;
+      const fx = -Math.sin(P.yaw) * cp * sgn, fy = Math.sin(P.pitch) * sgn, fz = -Math.cos(P.yaw) * cp * sgn;
+      let d = 4;
+      for (let t = 0.3; t <= 4; t += 0.1) { if (LL.OPQ[G.world.getBlock(Math.floor(ex + fx * t), Math.floor(ey + fy * t), Math.floor(ez + fz * t))]) { d = Math.max(0.3, t - 0.3); break; } }
+      camDist += (d - camDist) * Math.min(1, dt * (d < camDist ? 30 : 6));
+      camera.position.set(ex + fx * camDist, ey + fy * camDist, ez + fz * camDist);
+      if (G.thirdPerson === 1) camera.rotation.set(P.pitch, P.yaw, 0); else camera.rotation.set(-P.pitch, P.yaw + Math.PI, 0);
+    } else {
+      camDist = 0.5;
+      camera.position.set(ex, ey, ez);
+      camera.rotation.set(P.pitch, P.yaw, 0);
+    }
+    // your own character (seen in third person)
+    if (G.thirdPerson && G.state === 'play') {
+      if (!G.selfAvatar) G.selfAvatar = new LL.Avatar(scene, G.look);
+      const A = G.selfAvatar; A.visible = !P.dead;
+      A.setHeld((P.inv.held() || {}).id || 0); A.setArmor(P.equip.map(e => e ? e.id : 0));
+      const lvA = G.world.lightAt(P.pos.x, P.pos.y + 1, P.pos.z);
+      A.update(dt, { pos: P.pos, yaw: P.yaw, pitch: P.pitch, speed: Math.hypot(P.vel.x, P.vel.z), onGround: P.onGround, swimming: P.inWater, swing: P.swing, hurt: P.hurtCd > 0.3, light: Math.min(1, LL.bright(Math.max((lvA >> 4) * G.daylight, lvA & 15, G.ambientLevel)) + 0.1) });
+    } else if (G.selfAvatar) G.selfAvatar.visible = false;
     // highlight & crack
     const t = P.target;
     if (t && !P.dead && !LL.UI.panel) {

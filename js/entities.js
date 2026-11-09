@@ -263,7 +263,7 @@
       if (this.dead) return;
       if (this.puppet) {
         LL.Net.send({ t: 'mhit', to: this.owner, mid: this.uid, dmg, fx: from ? from.x : this.pos.x, fz: from ? from.z : this.pos.z, kb });
-        this.hurtT = 0.3; LL.sfx.hit(this.def.boss ? 0.5 : 1);
+        this.hurtT = 0.3; LL.sfx.hit(this.def.boss ? 0.5 : 1); LL.sfx.mob(this.type, 'hurt', this.pos);
         this.game.particles.burst(this.pos.x, this.pos.y + this.h * 0.6, this.pos.z, [140, 80, 200], 6, 2.5);
         return;
       }
@@ -279,12 +279,13 @@
       this.hp -= dmg; this.hurtT = 0.3;
       if (from) { const dx = this.pos.x - from.x, dz = this.pos.z - from.z, l = Math.hypot(dx, dz) || 1; const k = this.def.boss ? kb * 0.15 : kb; this.vel.x += dx / l * k; this.vel.z += dz / l * k; if (!this.fly) this.vel.y = Math.max(this.vel.y, 4.5); }
       if (this.def.passive) this.fleeT = 5;
-      LL.sfx.hit(this.def.boss ? 0.5 : 1);
+      LL.sfx.hit(this.def.boss ? 0.5 : 1); if (this.hp > 0) LL.sfx.mob(this.type, 'hurt', this.pos);
       this.game.particles.burst(this.pos.x, this.pos.y + this.h * 0.6, this.pos.z, this.type === 'buck' ? [200, 60, 60] : [140, 80, 200], 6, 2.5);
       if (this.hp <= 0) this.die();
     }
     die() {
       if (this.dying || this.dead) return; this.dying = true;
+      LL.sfx.mob(this.type, 'die', this.pos);
       const g = this.game, r = Math.random;
       this.game.particles.burst(this.pos.x, this.pos.y + this.h * 0.5, this.pos.z, this.type === 'gloomling' || this.type === 'maw' ? [40, 20, 60] : [220, 220, 230], this.def.boss ? 80 : 18, this.def.boss ? 8 : 3);
       const drops = this.def.drops(r);
@@ -323,7 +324,7 @@
             if (nlight >= limit && nlight > light) { wantX = 0; wantZ = 0; this.balk = (this.balk || 0) + dt; }
             if (light >= burnAt) { wantX = -dx / (dist || 1); wantZ = -dz / (dist || 1); }
           }
-          if (dist < this.def.reach && Math.abs(dy) < 1.8 && this.cd <= 0) { this.cd = this.def.cd; P.hurt(this.def.dmg, this.pos, this.def.name); this.attackAnim = 0.3; }
+          if (dist < this.def.reach && Math.abs(dy) < 1.8 && this.cd <= 0) { this.cd = this.def.cd; LL.sfx.mob(this.type, 'attack', this.pos); P.hurt(this.def.dmg, this.pos, this.def.name); this.attackAnim = 0.3; }
           if (dist < 0.6) { wantX *= 0.2; wantZ *= 0.2; }
         } else this.wander(dt);
         const ward = g.nearWard(this.pos, 16);
@@ -333,7 +334,7 @@
         if (this.angry > 0 && alive && dist < 24) {
           wantX = dx / (dist || 1); wantZ = dz / (dist || 1);
           if (this.type === 'boar') speed = dist > 3 ? 5.6 : 3.2;
-          if (dist < this.def.reach && Math.abs(dy) < 1.6 && this.cd <= 0) { this.cd = this.def.cd; P.hurt(this.def.dmg, this.pos, this.def.name, this.type === 'boar' ? 9 : 5); }
+          if (dist < this.def.reach && Math.abs(dy) < 1.6 && this.cd <= 0) { this.cd = this.def.cd; LL.sfx.mob(this.type, 'attack', this.pos); P.hurt(this.def.dmg, this.pos, this.def.name, this.type === 'boar' ? 9 : 5); }
         } else this.wander(dt);
       } else if (this.type === 'lurker') {
         const hidden = this.inWater && !(alive && dist < 6 && Math.abs(dy) < 3);
@@ -343,7 +344,7 @@
           if (this.chaseT <= 0 && this.inWater) { this.vel.y = 7; g.particles.burst(this.pos.x, this.pos.y + 0.5, this.pos.z, [120, 160, 200], 16, 3); }
           this.chaseT = 3;
           wantX = dx / (dist || 1); wantZ = dz / (dist || 1);
-          if (dist < this.def.reach && Math.abs(dy) < 1.6 && this.cd <= 0) { this.cd = this.def.cd; P.hurt(this.def.dmg, this.pos, this.def.name); if (!P.remote) P.slowT = 3; }
+          if (dist < this.def.reach && Math.abs(dy) < 1.6 && this.cd <= 0) { this.cd = this.def.cd; LL.sfx.mob(this.type, 'attack', this.pos); P.hurt(this.def.dmg, this.pos, this.def.name); if (!P.remote) P.slowT = 3; }
         } else if (this.chaseT > 0 && alive) { wantX = dx / (dist || 1); wantZ = dz / (dist || 1); }
       } else if (this.type === 'sporekin') {
         if (this.fleeT > 0 && alive) { this.fleeT -= dt; wantX = -dx / (dist || 1); wantZ = -dz / (dist || 1); speed *= 2; }
@@ -396,7 +397,7 @@
         if (alive && dist < 24 && light < 9) {
           tx = P.pos.x; ty = P.pos.y + 0.6 + Math.sin(this.t * 2) * 0.4; tz = P.pos.z;
           if (dist < this.def.reach && Math.abs(dy) < 1.8 && this.cd <= 0) {
-            this.cd = this.def.cd; P.hurt(this.def.dmg, this.pos, this.def.name, 3);
+            this.cd = this.def.cd; LL.sfx.mob(this.type, 'attack', this.pos); P.hurt(this.def.dmg, this.pos, this.def.name, 3);
             if (!P.remote) { P.warmth = Math.max(0, P.warmth - 18); g.toast('The wraith\'s touch steals your warmth!', 'warn'); }
             this.attackAnim = 0.3;
           }
@@ -452,7 +453,7 @@
           this.shootT = 2.6 + Math.random() * 1.2;
           const o = new V3(this.pos.x, this.pos.y + 0.45, this.pos.z), t = new V3(P.pos.x, P.pos.y + 1.0, P.pos.z);
           const v = t.sub(o).normalize().multiplyScalar(13);
-          g.spawnProjectile('gust', o, v);
+          g.spawnProjectile('gust', o, v); LL.sfx.mob('wisp', 'attack', this.pos);
         }
       } else { tx = this.pos.x + Math.sin(this.t * 0.3) * 4; tz = this.pos.z + Math.cos(this.t * 0.3) * 4; ty = this.pos.y; }
       const vx = tx - this.pos.x, vy = ty - this.pos.y, vz = tz - this.pos.z, l = Math.hypot(vx, vy, vz) || 1;
@@ -505,6 +506,8 @@
     }
     anim(dt, lv) {
       const g = this.game;
+      this.idleT = (this.idleT ?? Math.random() * 8) - dt;
+      if (this.idleT <= 0) { this.idleT = (this.type === 'keeper' ? 9 : 5) + Math.random() * 9; if (!this.submerged || Math.random() < 0.3) LL.sfx.mob(this.type, 'idle', this.pos); }
       const sp = Math.hypot(this.vel.x, this.vel.z);
       this.walk += sp * dt * 3;
       const sw = Math.sin(this.walk) * Math.min(1, sp / 2);

@@ -94,21 +94,30 @@
       this.vmHeld = -1; this.vmMesh = null;
     }
     refreshViewModel() {
-      const h = this.inv.held(), id = h ? h.id : 0;
-      if (id === this.vmHeld) return;
-      this.vmHeld = id;
-      if (this.vmMesh) { this.vm.remove(this.vmMesh); this.vmMesh.material.dispose(); }
-      let m;
-      if (!id) {
-        m = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.5), new THREE.MeshBasicMaterial({ color: 0xc89a78 })); m.userData.base = new THREE.Color(0xc89a78);
-        m.position.set(0.05, -0.05, 0.05); m.rotation.set(0.15, -0.2, 0);
-      } else {
-        m = LL.makeItemMesh(id, 0.32);
-        if (m.userData.cube) { m.scale.setScalar(0.19); m.rotation.set(0.25, 0.7, 0); m.position.set(0.08, 0.0, 0); }
-        else { m.scale.setScalar(0.26); m.rotation.set(0.1, -1.1, 0.25); m.position.set(0.06, 0.06, 0); }
+      const h = this.inv.held(), id = h ? h.id : 0, look = this.game.look || LL.DEFAULT_LOOK;
+      const key = id + '|' + look.skin + '|' + look.shirt;
+      if (key === this.vmKey) return;
+      this.vmKey = key; this.vmHeld = id;
+      while (this.vm.children.length) { const c = this.vm.children.pop(); c.traverse(o => { if (o.geometry && !o.userData.cube) o.geometry.dispose(); if (o.material) o.material.dispose(); }); }
+      this.vmMats = [];
+      const mk = (geo, color, map) => { const m = new THREE.MeshBasicMaterial(map ? { map, alphaTest: 0.5, side: THREE.DoubleSide } : { color }); m.depthTest = false; m.depthWrite = false; m.transparent = true; m.userData.base = new THREE.Color(map ? 0xffffff : color); this.vmMats.push(m); const me = new THREE.Mesh(geo, m); me.renderOrder = 10; return me; };
+      const arm = new THREE.Group();
+      const shirt = LL.LOOK_OPTIONS.shirt[look.shirt], skin = LL.LOOK_OPTIONS.skin[look.skin];
+      const sleeve = mk(new THREE.BoxGeometry(0.17, 0.17, 0.44), shirt); sleeve.position.z = 0.22;
+      const cuff = mk(new THREE.BoxGeometry(0.18, 0.18, 0.04), new THREE.Color(shirt).multiplyScalar(0.75).getHex()); cuff.position.z = 0.0;
+      const hand = mk(new THREE.BoxGeometry(0.16, 0.16, 0.17), skin); hand.position.z = -0.1;
+      arm.add(sleeve, cuff, hand);
+      arm.position.set(0.02, 0.05, 0.1); arm.rotation.set(0.22, -0.3, 0.05);
+      this.vm.add(arm); this.vmArm = arm;
+      if (id) {
+        const m = LL.makeItemMesh(id, 0.32);
+        m.material.depthTest = false; m.material.depthWrite = false; m.material.transparent = true; m.renderOrder = 11;
+        m.material.userData.base = new THREE.Color(0xffffff); this.vmMats.push(m.material);
+        if (m.userData.cube) { m.scale.setScalar(0.17); m.rotation.set(0.25, 0.7, 0); m.position.set(0.04, -0.02, -0.06); }
+        else { m.scale.setScalar(0.27); m.rotation.set(0.15, -1.15, 0.3); m.position.set(0.03, 0.06, -0.08); }
+        this.vm.add(m);
       }
-      m.renderOrder = 10; m.material.depthTest = false; m.material.depthWrite = false; m.material.transparent = true;
-      this.vmMesh = m; this.vm.add(m);
+      this.vmSwap = 1;
     }
     perk(k) { return LL.Prog.perk(this.game, k); }
     applyPerks() { this.maxVigor = 20 + 4 * this.perk('hardy'); if (this.vigor > this.maxVigor) this.vigor = this.maxVigor; }
@@ -153,8 +162,10 @@
       }
       inp.jumpPressed = false;
       if (this.inWater && inp.jump) this.vel.y = Math.min(this.vel.y + 26 * dt, 3.6);
-      const prevVy = this.vel.y;
+      const prevVy = this.vel.y, wasWater = this.inWater, wasGround = this.onGround;
       LL.physStep(w, this, dt, g.grav);
+      if (this.inWater && !wasWater && prevVy < -3) LL.sfx.splash(prevVy < -9);
+      if (this.onGround && !wasGround && this.landVel < -9 && !this.inWater) LL.sfx.land(w.getBlock(Math.floor(this.pos.x), Math.floor(this.pos.y - 0.2), Math.floor(this.pos.z)), -this.landVel);
       if (this.gliding) { if (this.vel.y < -2.2) this.vel.y = -2.2; if (Math.random() < 0.3) g.particles.add(this.pos.x, this.pos.y + 1.6, this.pos.z, 0, 0, 0, [240, 250, 255], 0.5, 0); }
       this.airT = this.onGround ? 0 : (this.airT || 0) + dt;
       if (this.onGround) this.djUsed = false;
@@ -163,11 +174,10 @@
         const dmg = Math.round((-this.landVel - thr) * 1.1);
         if (dmg > 0) { this.hurt(dmg, null, 'a long fall', 0); }
       }
-      if (this.onGround && wl) { this.bob += dt * speed * 1.6; if (Math.floor(this.bob / Math.PI) !== this._step) { this._step = Math.floor(this.bob / Math.PI); const below = w.getBlock(Math.floor(this.pos.x), Math.floor(this.pos.y - 0.2), Math.floor(this.pos.z)); LL.sfx.step(below); } }
+      if (this.onGround && wl) { this.bob += dt * speed * 1.6; if (Math.floor(this.bob / Math.PI) !== this._step) { this._step = Math.floor(this.bob / Math.PI); const below = w.getBlock(Math.floor(this.pos.x), Math.floor(this.pos.y - 0.2), Math.floor(this.pos.z)); LL.sfx.step(below, speed > 5); } }
       if (this.pos.y < -12) g.onVoid();
       // targeting
-      const cam = g.camera;
-      const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+      const cp = Math.cos(this.pitch), dir = new THREE.Vector3(-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp);
       const ox = this.pos.x, oy = this.pos.y + this.eye, oz = this.pos.z;
       this.target = LL.raycast(w, ox, oy, oz, dir.x, dir.y, dir.z, 5);
       this.mobTarget = null;
@@ -191,12 +201,19 @@
       this.swing = Math.max(0, this.swing - dt * 4);
       const sw = Math.sin(this.swing * Math.PI);
       const bobA = this.onGround ? Math.sin(this.bob) * 0.025 : 0;
-      this.vm.position.set(0.52 + bobA, -0.5 - Math.abs(bobA) - sw * 0.12, -0.78 - sw * 0.1);
-      this.vm.rotation.set(-sw * 0.9, sw * 0.3, 0);
-      if (this.vmMesh) {
+      this.vmSwap = Math.max(0, (this.vmSwap || 0) - dt * 5);
+      // sway: the arm lags a little behind mouse turns
+      const dyaw = (this.yaw - (this._lastYaw ?? this.yaw)), dpit = (this.pitch - (this._lastPitch ?? this.pitch));
+      this._lastYaw = this.yaw; this._lastPitch = this.pitch;
+      this.swayX = (this.swayX || 0) * Math.pow(0.002, dt) + dyaw * 0.6; this.swayY = (this.swayY || 0) * Math.pow(0.002, dt) - dpit * 0.6;
+      const sx = Math.max(-0.08, Math.min(0.08, this.swayX)), sy = Math.max(-0.08, Math.min(0.08, this.swayY));
+      this.vm.position.set(0.5 + bobA + sx, -0.48 - Math.abs(bobA) - sw * 0.1 - this.vmSwap * 0.35 + sy, -0.74 - sw * 0.14);
+      this.vm.rotation.set(-sw * 1.1 + sw * sw * 0.3, sw * 0.45, -sw * 0.25);
+      this.vm.visible = !g.thirdPerson;
+      if (this.vmMats) {
         const lv = w.lightAt(this.pos.x, this.pos.y + 1.5, this.pos.z);
-        const b = LL.bright(Math.max((lv >> 4) * g.daylight, lv & 15, g.ambientLevel));
-        const k = Math.min(1, b + 0.08); if (this.vmMesh.userData.base) this.vmMesh.material.color.copy(this.vmMesh.userData.base).multiplyScalar(k); else this.vmMesh.material.color.setScalar(k);
+        const k = Math.min(1, LL.bright(Math.max((lv >> 4) * g.daylight, lv & 15, g.ambientLevel)) + 0.08);
+        for (const m of this.vmMats) m.color.copy(m.userData.base).multiplyScalar(k);
       }
     }
     attack(m, dir) {
@@ -228,7 +245,7 @@
       g.world.setBlock(x, y, z, 0);
       const c = LL.TAVG[LL.TSIDE[id]];
       g.particles.burst(x + 0.5, y + 0.5, z + 0.5, c, 14, 3);
-      LL.sfx.dig(id, 1);
+      LL.sfx.breakBlock(id, { x: x + 0.5, y: y + 0.5, z: z + 0.5 });
       if (LL.canHarvest(id, held) && b.drop != null) {
         const drops = typeof b.drop === 'function' ? b.drop(Math.random) : [[b.drop, 1]];
         const ore = [22, 23, 24, 25, 40, 44].includes(id) && Math.random() < 0.2 * this.perk('prospect');
@@ -258,7 +275,8 @@
           g.particles.burst(t.x + 0.5, t.y + 0.5, t.z + 0.5, [190, 140, 240], 18, 2);
           this.inv.useHeld(1); this.swing = 1; LL.sfx.place(57); g.ui.refresh(); return;
         }
-        if (id === B.BENCH || id === B.KILN) { g.ui.openInventory(); return; }
+        if (id === B.BENCH) { g.ui.openInventory(); return; }
+        if (id === B.KILN) { g.ui.openInventory(null, t.x + ',' + t.y + ',' + t.z); return; }
         if (id === B.CACHE) { g.openCache(t); this.useCd = 0.5; return; }
         if (id === B.CHEST) { g.ui.openInventory(t.x + ',' + t.y + ',' + t.z); return; }
         if (id === B.WAY_GLOAM) { if (g.dimKey === 'wild') g.travel('gloam', t); else g.toast('The waystone is silent here.', 'warn'); this.useCd = 1; return; }

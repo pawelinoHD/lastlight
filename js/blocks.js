@@ -596,4 +596,17 @@
   rec('bench', 'build', 53, 1, [[158, 3], [28, 1]]);
 
 
+
+  // ---------- kiln smelting: single-ingredient kiln recipes are smelted over time inside the Kiln ----------
+  LL.FUEL_TIME = { 101: 40, 102: 24, 76: 12 };
+  LL.SMELT_TIME = 4;
+  LL.SMELT = [];
+  for (const r of R) {
+    if (r.st !== 'kiln') continue;
+    const main = r.ins.filter(([sp]) => sp !== 'fuel');
+    if (main.length !== 1) continue;
+    r.smelt = true;
+    LL.SMELT.push({ inp: main[0][0], n: main[0][1], out: r.out, outN: r.n, fuel: r.ins.some(([sp]) => sp === 'fuel') });
+  }
+  LL.findSmelt = id => LL.SMELT.find(e => typeof e.inp === 'string' ? LL.GROUPS[e.inp].includes(id) : e.inp === id) || null;
 })(window.LL);

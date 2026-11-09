@@ -23,48 +23,38 @@
   }
 
   class Remote {
-    constructor(game, id, name) {
+    constructor(game, id, name, look) {
       this.game = game; this.id = id; this.name = name; this.dim = null;
-      this.pos = new V3(0, -999, 0); this.tgt = new V3(0, -999, 0); this.yaw = 0; this.pitch = 0; this.walk = 0; this.swing = 0; this.dead = false; this.seen = false;
-      const hcol = 'hsl(' + hue(name) + ',55%,55%)';
-      this.mat = new THREE.MeshBasicMaterial({ vertexColors: true });
-      const g = this.group = new THREE.Group();
-      const shirt = new THREE.Color('hsl(' + hue(name) + ',65%,40%)').getHex(), dark = new THREE.Color('hsl(' + ((hue(name) + 200) % 360) + ',30%,25%)').getHex();
-      this.body = box(0.5, 0.7, 0.28, shirt, 0, 1.1, 0, g, this.mat);
-      this.head = new THREE.Group(); this.head.position.y = 1.45; g.add(this.head);
-      box(0.44, 0.44, 0.44, 0xc89a78, 0, 0.22, 0, this.head, this.mat);
-      box(0.46, 0.14, 0.46, 0x3a2a1c, 0, 0.42, 0, this.head, this.mat);
-      box(0.08, 0.06, 0.02, 0x1a1a1a, -0.1, 0.24, 0.225, this.head, this.mat); box(0.08, 0.06, 0.02, 0x1a1a1a, 0.1, 0.24, 0.225, this.head, this.mat);
-      this.armL = box(0.18, 0.66, 0.18, shirt, -0.34, 1.42, 0, g, this.mat, true);
-      this.armR = box(0.18, 0.66, 0.18, shirt, 0.34, 1.42, 0, g, this.mat, true);
-      this.legL = box(0.2, 0.76, 0.2, dark, -0.13, 0.76, 0, g, this.mat, true);
-      this.legR = box(0.2, 0.76, 0.2, dark, 0.13, 0.76, 0, g, this.mat, true);
-      this.tag = tagSprite(name, hcol); this.tag.position.y = 2.25; g.add(this.tag);
-      g.visible = false; game.scene.add(g);
+      this.pos = new V3(0, -999, 0); this.tgt = new V3(0, -999, 0); this.yaw = 0; this.pitch = 0; this.swing = 0; this.dead = false; this.seen = false; this.onGround = true;
+      this.avatar = new LL.Avatar(game.scene, look);
+      this.tag = tagSprite(name, 'hsl(' + hue(name) + ',60%,68%)'); this.tag.position.y = 2.3;
+      this.avatar.group.add(this.tag);
+      this.avatar.visible = false;
       this.proxy = { pos: this.pos, vel: new V3(), dead: false, remote: id, hurt: (dmg, from, cause, kb) => LL.Net.send({ t: 'phurt', to: id, dmg, fx: from ? from.x : 0, fy: from ? from.y : 0, fz: from ? from.z : 0, cause, kb }) };
     }
+    setLook(look) { this.avatar.setLook(look); this.avatar.group.add(this.tag); }
     state(m) {
+      const dy = m.y - this.tgt.y;
       this.dim = m.dim; this.tgt.set(m.x, m.y, m.z); this.yaw = m.yaw; this.pitch = m.pitch; this.dead = !!m.dead; this.proxy.dead = this.dead;
+      this.onGround = m.g !== 0 && Math.abs(dy) < 0.2;
       if (m.sw) this.swing = 1;
+      if (m.h !== undefined) this.avatar.setHeld(m.h);
+      if (m.eq) this.avatar.setArmor(m.eq);
       if (!this.seen || this.pos.distanceTo(this.tgt) > 12) { this.pos.copy(this.tgt); this.seen = true; }
     }
     update(dt) {
       const g = this.game, here = this.seen && this.dim === g.dimKey && !this.dead && g.state === 'play';
-      this.group.visible = here; if (!here) return;
-      const before = this.pos.clone();
+      this.avatar.visible = here; if (!here) return;
+      const bx = this.pos.x, bz = this.pos.z;
       this.pos.lerp(this.tgt, Math.min(1, dt * 12));
-      const sp = Math.hypot(this.pos.x - before.x, this.pos.z - before.z) / Math.max(dt, 1e-3);
-      this.walk += sp * dt * 3;
-      const sw = Math.sin(this.walk) * Math.min(1, sp / 3);
-      this.legL.rotation.x = sw * 0.8; this.legR.rotation.x = -sw * 0.8;
+      const sp = Math.hypot(this.pos.x - bx, this.pos.z - bz) / Math.max(dt, 1e-3);
       this.swing = Math.max(0, this.swing - dt * 4);
-      this.armL.rotation.x = -sw * 0.7; this.armR.rotation.x = sw * 0.7 - Math.sin(this.swing * Math.PI) * 1.6;
-      this.head.rotation.x = -this.pitch * 0.8;
-      this.group.position.copy(this.pos); this.group.rotation.y = this.yaw + Math.PI;
       const lv = g.world.lightAt(this.pos.x, this.pos.y + 1, this.pos.z);
-      this.mat.color.setScalar(Math.min(1, LL.bright(Math.max((lv >> 4) * g.daylight, lv & 15, g.ambientLevel)) + 0.12));
+      const light = Math.min(1, LL.bright(Math.max((lv >> 4) * g.daylight, lv & 15, g.ambientLevel)) + 0.12);
+      this.avatar.update(dt, { pos: this.pos, yaw: this.yaw, pitch: this.pitch, speed: sp, onGround: this.onGround, swing: this.swing, light });
+      if (this.swing > 0.95 && !this._swingSnd) { this._swingSnd = true; } else if (this.swing < 0.5) this._swingSnd = false;
     }
-    remove() { this.game.scene.remove(this.group); }
+    remove() { this.avatar.remove(); }
   }
 
   const Net = LL.Net = {
@@ -75,12 +65,12 @@
         try { ws = new WebSocket(url); } catch (e) { return reject(e); }
         this.ws = ws; let welcomed = false;
         const to = setTimeout(() => { if (!welcomed) { ws.close(); reject(new Error('No answer from the server.')); } }, 8000);
-        ws.onopen = () => ws.send(JSON.stringify({ t: 'hello', name }));
+        ws.onopen = () => ws.send(JSON.stringify({ t: 'hello', name, look: LL.game.look }));
         ws.onerror = () => { if (!welcomed) { clearTimeout(to); reject(new Error('Could not connect to ' + url)); } };
         ws.onclose = () => { if (welcomed) this.onClose(); };
         ws.onmessage = ev => {
           let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
-          if (m.t === 'welcome') { welcomed = true; clearTimeout(to); this.id = m.id; this.name = m.name; for (const p of m.players) { const r = this.addPlayer(p.id, p.name); if (p.state) r.state(p.state); } resolve(m); return; }
+          if (m.t === 'welcome') { welcomed = true; clearTimeout(to); this.id = m.id; this.name = m.name; for (const p of m.players) { const r = this.addPlayer(p.id, p.name, p.look); if (p.state) r.state(p.state); } resolve(m); return; }
           this.onMessage(m);
         };
       });
@@ -92,12 +82,12 @@
       this.players.forEach(p => p.remove()); this.players.clear(); this.clearPuppets();
       if (g.mp && g.state !== 'title') { g.toast('Lost connection to the server.', 'warn'); g.onDisconnect(); }
     },
-    addPlayer(id, name) { let r = this.players.get(id); if (!r) { r = new Remote(LL.game, id, name); this.players.set(id, r); } return r; },
+    addPlayer(id, name, look) { let r = this.players.get(id); if (!r) { r = new Remote(LL.game, id, name, look); this.players.set(id, r); } else if (look) r.setLook(look); return r; },
     clearPuppets() { const g = LL.game; (g.puppets || []).forEach(m => m.remove()); g.puppets = []; },
     onMessage(m) {
       const g = LL.game;
       switch (m.t) {
-        case 'join': this.addPlayer(m.id, m.name); this.chatLine(null, m.name + ' joined the world.'); LL.sfx.pickup(); break;
+        case 'join': this.addPlayer(m.id, m.name, m.look); this.chatLine(null, m.name + ' joined the world.'); LL.sfx.pickup(); break;
         case 'leave': { const r = this.players.get(m.id); if (r) { r.remove(); this.players.delete(m.id); } g.puppets = (g.puppets || []).filter(p => { if (p.owner === m.id) { p.remove(); return false; } return true; }); this.chatLine(null, m.name + ' left.'); break; }
         case 'pos': { const r = this.players.get(m.id); if (r) r.state(m); break; }
         case 'set': g.remoteSet(m.dim, m.x, m.y, m.z, m.id); break;
@@ -132,7 +122,7 @@
       this.sendT -= dt;
       if (this.sendT <= 0) {
         this.sendT = 0.1;
-        this.send({ t: 'pos', dim: g.dimKey, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(2), pitch: +P.pitch.toFixed(2), sw: P.swing > 0.8 ? 1 : 0, dead: P.dead ? 1 : 0 });
+        this.send({ t: 'pos', dim: g.dimKey, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(2), pitch: +P.pitch.toFixed(2), sw: P.swing > 0.8 ? 1 : 0, dead: P.dead ? 1 : 0, g: P.onGround ? 1 : 0, h: (P.inv.held() || {}).id || 0, eq: P.equip.map(e => e ? e.id : 0) });
       }
       this.mobT -= dt;
       if (this.mobT <= 0 && this.players.size) {

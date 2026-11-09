@@ -30,7 +30,7 @@
     g.ui.floatXP(n, why);
     let leveled = false;
     while (g.xp >= P.need(g.level)) { g.xp -= P.need(g.level); g.level++; g.pendingPerks++; leveled = true; }
-    if (leveled) { LL.sfx.kindle(); g.ui.banner('Level ' + g.level, 'Choose a new perk'); setTimeout(() => P.offerPerk(g), 900); }
+    if (leveled) { LL.sfx.levelUp(); g.ui.banner('Level ' + g.level, 'Choose a new perk'); setTimeout(() => P.offerPerk(g), 900); }
   };
   P.rollPerks = (g) => {
     const avail = LL.PERKS.filter(p => P.perk(g, p.k) < p.max);
