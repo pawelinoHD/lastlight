@@ -157,6 +157,12 @@
       part(m.body, em, 0.06, 0.06, 0.02, 0, -0.2, 0.06, 0.5); part(m.body, em, 0.06, 0.06, 0.02, 0, 0.2, 0.06, 0.5);
       m.tail = [part(g, mat, 0.06, 0.06, 1.2, 0x6a98c8, 0, 0.2, -1.05)];
     },
+    settler(m) {
+      const O = LL.LOOK_OPTIONS, rnd = n => Math.random() * n | 0;
+      m.av = new LL.Avatar(m.game.scene, { skin: rnd(O.skin.length), hair: rnd(O.hair.length), style: rnd(O.style.length), eyes: rnd(O.eyes.length), shirt: rnd(O.shirt.length), pants: rnd(O.pants.length) });
+      m.game.scene.remove(m.av.group); m.group.add(m.av.group);
+      if (Math.random() < 0.4) m.av.setHeld([100, 26, 151, 134, 112][rnd(5)]);
+    },
     keeper(m) {
       const g = m.group, mat = m.mat;
       m.body = part(g, mat, 0.56, 0.9, 0.36, 0x4a3426, 0, 1.0, 0);
@@ -225,6 +231,7 @@
     },
   };
 
+  const ZERO3 = new V3();
   const DEF = LL.MOBDEF = {
     gloomling: { name: 'Gloomling', hp: 12, speed: 3.2, hw: 0.3, h: 1.9, hostile: true, dmg: 3, reach: 1.5, cd: 1.0, avoidLight: true, drops: r => r() < 0.65 ? [[I.DUSK_PEARL, 1]] : [] },
     brute: { name: 'Gloom Brute', hp: 36, speed: 2.5, hw: 0.55, h: 2.6, hostile: true, dmg: 6, reach: 2.0, cd: 1.5, avoidLight: true, tough: true, drops: r => [[I.GLOOM_HEART, 1], [I.DUSK_PEARL, 1 + (r() < 0.5 ? 1 : 0)]] },
@@ -235,6 +242,7 @@
     moth: { name: 'Glowmoth', hp: 3, speed: 2, hw: 0.2, h: 0.3, passive: true, fly: true, drops: r => [[I.MOTH_DUST, 1 + (r() < 0.5 ? 1 : 0)]] },
     sporekin: { name: 'Sporekin', hp: 6, speed: 1.8, hw: 0.3, h: 0.8, passive: true, drops: r => [[I.SPORE_SAC, 1], ...(r() < 0.5 ? [[I.GLOWCAP_FOOD, 1]] : [])] },
     skyray: { name: 'Skyray', hp: 12, speed: 3, hw: 0.7, h: 0.45, passive: true, fly: true, drops: r => [[I.SILK, 1 + (r() < 0.5 ? 1 : 0)]] },
+    settler: { name: 'Settler', hp: 9999, speed: 1.6, hw: 0.3, h: 1.8, npc: true, drops: () => [] },
     keeper: { name: 'Lantern Keeper', hp: 9999, speed: 0, hw: 0.3, h: 1.9, npc: true, drops: () => [] },
     buck: { name: 'Bramblebuck', hp: 10, speed: 2.2, hw: 0.42, h: 1.4, passive: true, drops: r => [[I.RAW_VENISON, 1 + (r() < 0.5 ? 1 : 0)], ...(r() < 0.7 ? [[I.HIDE, 1 + (r() < 0.4 ? 1 : 0)]] : [])] },
     crawler: { name: 'Gloam Crawler', hp: 14, speed: 4.4, hw: 0.55, h: 0.8, hostile: true, dmg: 4, reach: 1.7, cd: 0.9, drops: r => [[I.SILK, 1 + (r() < 0.5 ? 1 : 0)]] },
@@ -258,7 +266,7 @@
       game.scene.add(this.group);
       this.group.position.copy(this.pos);
     }
-    remove() { if (this.puppet && this.def.boss) this.game.ui.bossHide(); this.dead = true; this.game.scene.remove(this.group); this.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.mat.dispose(); this.extraMats.forEach(m => m.dispose()); }
+    remove() { if (this.av) this.av.clear(); if (this.puppet && this.def.boss) this.game.ui.bossHide(); this.dead = true; this.game.scene.remove(this.group); this.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.mat.dispose(); this.extraMats.forEach(m => m.dispose()); }
     hurt(dmg, from, kb = 6, attacker) {
       if (this.dead) return;
       if (this.puppet) {
@@ -267,7 +275,7 @@
         this.game.particles.burst(this.pos.x, this.pos.y + this.h * 0.6, this.pos.z, [140, 80, 200], 6, 2.5);
         return;
       }
-      if (this.def.npc) { if (!this._grumble) { this._grumble = 1; this.game.toast('The Lantern Keeper steps back. "Easy, traveller."'); setTimeout(() => this._grumble = 0, 4000); } return; }
+      if (this.def.npc) { if (!this._grumble) { this._grumble = 1; this.game.toast(this.type === 'settler' ? 'The settler flinches. "Hey! What was that for?"' : 'The Lantern Keeper steps back. "Easy, traveller."'); setTimeout(() => this._grumble = 0, 4000); } return; }
       this.lastAttacker = attacker || null;
       if (this.def.neutral) this.angry = 10;
       if (this.type === 'beetle') {
@@ -350,6 +358,12 @@
         if (this.fleeT > 0 && alive) { this.fleeT -= dt; wantX = -dx / (dist || 1); wantZ = -dz / (dist || 1); speed *= 2; }
         else this.wander(dt);
         if (this.onGround && (wantX || wantZ || this.wanderMove) && Math.random() < dt * 2) this.vel.y = 4.2;
+      } else if (this.type === 'settler') {
+        const h = this.home;
+        if (alive && dist < 3.2 && Math.abs(dy) < 2) { this.yaw = Math.atan2(dx, dz); this.wanderMove = false; this.wdir = null; }
+        else if (h && Math.hypot(this.pos.x - h.x, this.pos.z - h.z) > h.R * 0.65) { const hx = h.x - this.pos.x, hz = h.z - this.pos.z, hl = Math.hypot(hx, hz) || 1; wantX = hx / hl; wantZ = hz / hl; speed *= 0.6; }
+        else this.wander(dt);
+        if (this.inWater) { this.vel.y = Math.min(this.vel.y + 30 * dt, 2.5); }
       } else if (this.type === 'keeper') {
         if (alive && dist < 10) this.yaw = Math.atan2(dx, dz);
         this.vel.x = this.vel.z = 0;
@@ -534,6 +548,7 @@
       if (this.type === 'gloomling') this.group.position.y += Math.sin(this.t * 3) * 0.02;
       if (this.type === 'wraith') this.group.position.y += Math.sin(this.t * 2) * 0.12;
       this.group.rotation.y = this.yaw;
+      if (this.av) this.av.update(dt, { pos: ZERO3, yaw: -Math.PI, pitch: 0, speed: Math.hypot(this.vel.x, this.vel.z), onGround: true, swing: 0, light: b });
     }
   }
   LL.Mob = Mob;

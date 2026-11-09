@@ -263,10 +263,11 @@
     use() {
       const g = this.game, t = this.target, h = this.inv.held();
       this.useCd = 0.22;
-      if (this.mobTarget && this.mobTarget.def.npc) { g.openTrade(this.mobTarget.stall); this.useCd = 0.5; return; }
+      if (this.mobTarget && this.mobTarget.def.npc) { if (this.mobTarget.type === 'settler') g.talkTo(this.mobTarget); else g.openTrade(this.mobTarget.stall); this.useCd = 0.6; return; }
       // interactive blocks first
       if (t) {
         const id = t.id;
+        if (id === B.BED || id === B.BED_X) { g.sleep(); this.useCd = 1; return; }
         if (id === B.TRADE_STALL) { g.openTrade({ x: t.x, y: t.y, z: t.z }); this.useCd = 0.5; return; }
         if (id === B.EMBER_ANVIL) { g.repairAt(h); this.useCd = 0.5; return; }
         if (id === B.SUNWELL) { g.useSunwell(t); this.useCd = 1; return; }
@@ -327,7 +328,8 @@
           if (box(this.pos.x, this.pos.y, this.pos.z, this.hw, this.h)) return;
           for (const m of g.mobs) if (box(m.pos.x, m.pos.y, m.pos.z, m.hw, m.h)) return;
         }
-        g.world.setBlock(tx, ty, tz, id);
+        const pid = id === B.BED && Math.abs(Math.sin(this.yaw)) > Math.abs(Math.cos(this.yaw)) ? B.BED_X : id;
+        g.world.setBlock(tx, ty, tz, pid);
         this.inv.useHeld(1); this.swing = 1; this.useCd = 0.2;
         LL.sfx.place(id); g.ui.refresh();
         g.onBlockPlaced(id, tx, ty, tz);

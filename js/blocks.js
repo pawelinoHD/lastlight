@@ -292,6 +292,27 @@
   tile('sunwell_side', p => { p.fill('#d8cfb4', 5); frame(p, '#a89a74'); for (let x = 2; x < 14; x++) { p.set(x, 3, [255, 210, 90]); p.set(x, 12, [255, 210, 90]); } for (let y = 4; y < 12; y++) { p.set(7, y, [255, 230, 140]); p.set(8, y, [255, 230, 140]); } });
   tile('rift', p => { p.fill('#0c0812', 4); for (let k = 0; k < 3; k++) { const ph = k * 2.1; for (let t = 0; t < 40; t++) { const a = ph + t * 0.25, r = 1 + t * 0.17; p.set(7.5 + Math.cos(a) * r, 7.5 + Math.sin(a) * r, t > 30 ? [60, 20, 90] : [170, 70, 255]); } } p.set(7, 7, [255, 120, 240]); p.set(8, 8, [255, 120, 240]); });
   tile('stall_top', p => { planks(p, '#8a6440'); frame(p, '#5a3e22'); for (let x = 3; x < 6; x++) for (let y = 4; y < 7; y++) p.set(x, y, [220, 90, 40]); for (let x = 9; x < 12; x++) for (let y = 9; y < 12; y++) p.set(x, y, [110, 200, 120]); p.set(11, 4, [96, 232, 196]); p.set(4, 11, [255, 200, 80]); });
+  // ---- furniture textures ----
+  function wool(p, c) { p.fill(c, 6); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if ((x % 4 === 0) || (y % 4 === 0)) p.mul(x, y, 0.88); }
+  tile('wool_red', p => { wool(p, '#a8323a'); for (let x = 0; x < 16; x++) { p.set(x, 1, [230, 190, 90]); p.set(x, 14, [230, 190, 90]); } });
+  tile('wool_white', p => wool(p, '#e8e2d6'));
+  tile('bookshelf', p => {
+    planks(p, '#8a6440');
+    const cols = ['#9a2a2a', '#2a4a8a', '#3a6a2a', '#6a3a1e', '#6a2a7a', '#b08a2a', '#2a6a6a'];
+    for (const y0 of [2, 9]) { let x = 1; while (x < 15) { const w = p.r() < 0.3 ? 2 : 1, c = rgb(cols[p.ri(0, cols.length - 1)]), h = p.ri(4, 5); for (let i = 0; i < w && x < 15; i++, x++) for (let y = y0 + (5 - h); y < y0 + 5; y++) p.set(x, y, p.j(y === y0 + (5 - h) ? [c[0] * 1.3, c[1] * 1.3, c[2] * 1.3] : c, 6)); if (p.r() < 0.15) x++; } }
+    for (let x = 0; x < 16; x++) { p.set(x, 0, [70, 48, 28]); p.set(x, 7, [70, 48, 28]); p.set(x, 8, [96, 68, 40]); p.set(x, 15, [70, 48, 28]); }
+  });
+  tile('barrel_side', p => { p.fill('#8a6440', 6); for (let x = 0; x < 16; x += 3) for (let y = 0; y < 16; y++) p.mul(x, y, 0.75); for (const y of [2, 3, 12, 13]) for (let x = 0; x < 16; x++) p.set(x, y, p.j([70, 66, 72], 6)); });
+  tile('barrel_top', p => { for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const d = Math.hypot(x - 7.5, y - 7.5); p.set(x, y, d > 7 ? [70, 66, 72] : p.j(x % 4 === 0 ? [110, 78, 48] : [150, 110, 70], 6)); } });
+  tile('crate', p => { planks(p, '#a8844c'); frame(p, '#6a4a28'); frame(p, '#6a4a28', 1); for (let i = 2; i < 14; i++) { p.set(i, i, [106, 74, 40]); p.set(i + 1, i, [106, 74, 40]); } });
+  tile('rug', p => { for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const e = Math.min(x, y, 15 - x, 15 - y); const dd = Math.abs(x - 7.5) + Math.abs(y - 7.5); p.set(x, y, p.j(e === 0 ? [90, 30, 30] : e === 1 ? [220, 170, 80] : dd < 3 ? [220, 170, 80] : dd < 5 ? [40, 70, 110] : [150, 40, 42], 8)); } });
+  tile('pot', p => { p.fill('#a8543a', 8); for (let x = 0; x < 16; x++) { p.set(x, 0, [200, 120, 80]); p.set(x, 1, [190, 110, 72]); p.set(x, 2, [120, 60, 40]); } });
+  tile('iron', p => { p.fill('#4a4650', 6); frame(p, '#34313a'); [[3, 3], [12, 3], [3, 12], [12, 12]].forEach(([x, y]) => p.set(x, y, [120, 116, 128])); });
+  tile('candle', p => { p.fill('#efe6cc', 5); for (let k = 0; k < 4; k++) { const x = p.ri(0, 15); for (let y = 0; y < p.ri(2, 6); y++) p.set(x, y, [255, 250, 235]); } });
+  tile('flame', p => { for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const d = Math.hypot(x - 7.5, (y - 9) * 0.7); p.set(x, y, d < 3 ? [255, 250, 210] : d < 6 ? [255, 200, 80] : [255, 130, 40]); } });
+  tile('stew', p => { p.fill('#a8602a', 10); for (let k = 0; k < 10; k++) p.set(p.ri(1, 14), p.ri(1, 14), p.r() < 0.5 ? [220, 170, 90] : [90, 140, 60]); });
+  tile('table_top', p => { planks(p, '#c09a68'); frame(p, '#8a6a44'); });
+  tile('cushion', p => { wool(p, '#7a2a3a'); p.set(7, 7, [230, 190, 90]); p.set(8, 8, [230, 190, 90]); });
   tile('stall_side', p => { planks(p, '#8a6440'); for (let y = 0; y < 4; y++) for (let x = 0; x < 16; x++) p.set(x, y, (x >> 2) % 2 ? [200, 60, 50] : [240, 220, 190]); });
 
 
@@ -344,7 +365,7 @@
   def(23, 'CINDER_ORE', 'Cinderite Ore', { tiles: 'cinder_ore', hard: 3.5, tool: 'pick', tier: 1, drop: (r) => [[101, 1 + (r() < 0.3 ? 1 : 0)]] });
   def(24, 'EMBER_ORE', 'Emberite Ore', { tiles: 'ember_ore', hard: 5, tool: 'pick', tier: 3, light: 5 });
   def(25, 'LUMITE', 'Lumite Cluster', { tiles: 'lumite', hard: 2.5, tool: 'pick', tier: 1, light: 12, drop: (r) => [[106, 2 + (r() < 0.5 ? 1 : 0)]] });
-  def(26, 'LANTERN', 'Cinder Lantern', { tiles: 'lantern', rt: 2, hard: 0.4, light: 14 });
+  def(26, 'LANTERN', 'Cinder Lantern', { tiles: 'lantern', rt: 5, solid: false, hard: 0.4, light: 14 });
   def(27, 'HEARTH', 'Hearth', { tiles: ['hearth_top', 'cobble', 'hearth_side'], hard: 3, tool: 'pick', light: 15 });
   def(28, 'GLASS', 'Glass', { tiles: 'glass', rt: 2, hard: 0.4, drop: null });
   def(29, 'KILN_BRICKS', 'Fired Bricks', { tiles: 'kiln_bricks', hard: 3.5, tool: 'pick', tier: 1 });
@@ -371,7 +392,7 @@
   def(50, 'SHRINE', 'Dawn Masonry', { tiles: 'shrine', hard: -1, drop: null });
   def(51, 'ALTAR', 'Dawn Altar', { tiles: ['altar', 'shrine', 'shrine'], hard: -1, drop: null, light: 6 });
   def(52, 'ALTAR_LIT', 'Kindled Altar', { tiles: ['altar_lit', 'shrine', 'shrine'], hard: -1, drop: null, light: 15 });
-  def(53, 'LUMITE_LAMP', 'Lumite Lamp', { tiles: 'lumite_lamp', rt: 2, hard: 0.5, light: 15 });
+  def(53, 'LUMITE_LAMP', 'Lumite Lamp', { tiles: 'lumite_lamp', rt: 5, solid: false, hard: 0.5, light: 15 });
   def(54, 'TALLGRASS', 'Tallgrass', { tiles: 'tallgrass', rt: 3, solid: false, hard: 0, drop: (r) => { const v = r(); return v < 0.14 ? [[150, 1]] : v < 0.19 ? [[100, 1]] : []; } });
   def(55, 'EMBERBLOOM', 'Emberbloom', { tiles: 'emberbloom', rt: 3, solid: false, hard: 0 });
   def(56, 'FROSTBELL', 'Frostbell', { tiles: 'frostbell', rt: 3, solid: false, hard: 0 });
@@ -401,6 +422,19 @@
   def(80, 'SUNWELL', 'Sunwell', { tiles: ['sunwell_top', 'sunwell_side'], hard: -1, light: 13, drop: null });
   def(81, 'GLOOM_RIFT', 'Gloom Rift', { tiles: 'rift', hard: 6, tool: 'pick', tier: 1, drop: null });
   def(82, 'TRADE_STALL', 'Trade Stall', { tiles: ['stall_top', 'drift_planks', 'stall_side'], hard: -1, drop: null });
+  def(83, 'TABLE', 'Table', { tiles: ['table_top', 'drift_planks'], rt: 5, hard: 1.2, tool: 'axe' });
+  def(84, 'STOOL', 'Stool', { tiles: ['cushion', 'drift_planks'], rt: 5, hard: 0.8, tool: 'axe' });
+  def(85, 'BED', 'Bed', { tiles: ['wool_red', 'drift_planks'], rt: 5, hard: 0.8, tool: 'axe' });
+  def(86, 'BED_X', 'Bed', { tiles: ['wool_red', 'drift_planks'], rt: 5, hard: 0.8, tool: 'axe', drop: 85, place: false });
+  def(87, 'BOOKSHELF', 'Bookshelf', { tiles: ['drift_planks', 'bookshelf'], hard: 1.4, tool: 'axe' });
+  def(88, 'BARREL', 'Barrel', { tiles: ['barrel_top', 'barrel_side'], rt: 5, hard: 1.4, tool: 'axe' });
+  def(89, 'CRATE', 'Crate', { tiles: 'crate', hard: 1.2, tool: 'axe' });
+  def(90, 'RUG', 'Woven Rug', { tiles: 'rug', rt: 5, solid: false, hard: 0.2 });
+  def(91, 'POTTED_PLANT', 'Potted Fern', { tiles: ['drift_leaves', 'pot'], rt: 5, solid: false, hard: 0.2 });
+  def(92, 'CANDLES', 'Candles', { tiles: ['candle', 'candle'], rt: 5, solid: false, hard: 0.1, light: 10 });
+  def(93, 'COOKPOT', 'Cooking Pot', { tiles: ['stew', 'iron'], rt: 5, hard: 1.5, tool: 'pick' });
+  def(94, 'HANGING_LANTERN', 'Hanging Lantern', { tiles: 'lantern', rt: 5, solid: false, hard: 0.4, light: 14 });
+
 
 
   // ---------- items ----------
@@ -508,7 +542,7 @@
     if (it.block) {
       const b = BLOCKS[id];
       const tsrc = (t) => [(t % AN) * TS, Math.floor(t / AN) * TS];
-      if (b.rt === 3 || b.rt === 4) {
+      if (b.rt === 3 || b.rt === 4 || id === 90 || id === 92) {
         const [sx, sy] = tsrc(TSIDE[id]); c.drawImage(atlas, sx, sy, 16, 16, 0, 0, 32, 32);
       } else {
         const faces = [[TTOP[id], [14 / 16, -7 / 16, 14 / 16, 7 / 16, 2, 9], 0], [TSIDE[id], [14 / 16, 7 / 16, 0, 15 / 16, 2, 9], 0.25], [TSIDE[id], [14 / 16, -7 / 16, 0, 15 / 16, 16, 16], 0.42]];
@@ -594,6 +628,35 @@
   rec('kiln', 'smelt', 78, 4, [[19, 4], ['fuel', 1]]);
   rec('bench', 'build', 79, 1, [[105, 3], [4, 6]]);
   rec('bench', 'build', 53, 1, [[158, 3], [28, 1]]);
+  rec('bench', 'home', 83, 1, [['planks', 4]]);
+  rec('bench', 'home', 84, 2, [['planks', 2], [100, 2]]);
+  rec('bench', 'home', 85, 1, [['planks', 3], [111, 3]]);
+  rec('bench', 'home', 87, 1, [['planks', 6]]);
+  rec('bench', 'home', 88, 1, [['planks', 6]]);
+  rec('bench', 'home', 89, 2, [['planks', 4], [100, 2]]);
+  rec('bench', 'home', 90, 2, [[111, 2]]);
+  rec('bench', 'home', 91, 1, [[20, 2], [150, 1]]);
+  rec('bench', 'home', 92, 2, [[113, 1], [100, 1]]);
+  rec('bench', 'home', 93, 1, [[103, 3]]);
+  rec('bench', 'home', 94, 1, [[26, 1], [100, 1]]);
+  // shapes for rt-5 blocks: boxes in 1/16 units; t = tile name or [top, bottom, side]; fit = squeeze the whole tile onto each face
+  const SH = LL.SHAPES = {};
+  const shape = (id, boxes) => { SH[id] = boxes.map(([b, t, fit]) => { const tt = Array.isArray(t) ? t : [t, t, t]; return { b, tt: T[tt[0]], tb: T[tt[1]], ts: T[tt[2]], fit: !!fit }; }); };
+  const legs = (h, t, w = 2, i = 1) => [[i, 0, i, i + w, h, i + w], [16 - i - w, 0, i, 16 - i, h, i + w], [i, 0, 16 - i - w, i + w, h, 16 - i], [16 - i - w, 0, 16 - i - w, 16 - i, h, 16 - i]].map(b => [b, t]);
+  shape(83, [[[0, 13, 0, 16, 16, 16], ['table_top', 'drift_planks', 'drift_planks']], ...legs(13, 'drift_planks')]);
+  shape(84, [[[3, 7, 3, 13, 9, 13], ['cushion', 'drift_planks', 'drift_planks']], ...legs(7, 'drift_planks', 2, 3)]);
+  const bedZ = [[[0, 3, 0, 16, 6, 16], 'drift_planks'], ...legs(3, 'drift_planks', 2, 0), [[1, 6, 4, 15, 9, 16], 'wool_red'], [[2, 6, 1, 14, 9.5, 4], 'wool_white'], [[0, 6, 0, 16, 12, 1], 'drift_planks']];
+  shape(85, bedZ);
+  shape(86, bedZ.map(([b, t]) => [[b[2], b[1], b[0], b[5], b[4], b[3]], t]));
+  shape(88, [[[2, 0, 2, 14, 15, 14], ['barrel_top', 'barrel_top', 'barrel_side'], true], [[1.5, 2, 1.5, 14.5, 4, 14.5], 'iron', true], [[1.5, 11, 1.5, 14.5, 13, 14.5], 'iron', true]]);
+  shape(90, [[[0, 0, 0, 16, 1, 16], 'rug']]);
+  shape(91, [[[5, 0, 5, 11, 6, 11], 'pot', true], [[4, 6, 4, 12, 13, 12], 'drift_leaves', true], [[6, 13, 6, 10, 15, 10], 'drift_leaves', true]]);
+  shape(92, [[[4, 0, 5, 6, 5, 7], 'candle'], [[4.5, 5, 5.5, 5.5, 6.5, 6.5], 'flame', true], [[9, 0, 8, 11, 7, 10], 'candle'], [[9.5, 7, 8.5, 10.5, 8.5, 9.5], 'flame', true], [[6, 0, 10, 8, 3.5, 12], 'candle'], [[6.5, 3.5, 10.5, 7.5, 5, 11.5], 'flame', true]]);
+  shape(93, [[[3, 0, 3, 13, 8, 13], 'iron', true], [[4, 7.6, 4, 12, 8, 12], 'stew', true], [[2, 6, 7, 3, 7, 9], 'iron'], [[13, 6, 7, 14, 7, 9], 'iron']]);
+  shape(94, [[[5, 3, 5, 11, 11, 11], 'lantern', true], [[4.5, 11, 4.5, 11.5, 12, 11.5], 'iron', true], [[7.5, 12, 7.5, 8.5, 16, 8.5], 'iron', true]]);
+  shape(26, [[[5, 0, 5, 11, 8, 11], 'lantern', true], [[4.5, 8, 4.5, 11.5, 9, 11.5], 'iron', true], [[7, 9, 7, 9, 11, 9], 'iron', true]]);
+  shape(53, [[[4, 0, 4, 12, 2, 12], 'iron', true], [[5, 2, 5, 11, 12, 11], 'lumite_lamp', true], [[4, 12, 4, 12, 13, 12], 'iron', true]]);
+
 
 
 

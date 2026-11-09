@@ -124,7 +124,7 @@
   }
   function voice(type, kind, pos) {
     if (!ctx) return;
-    const v = VOICES[type]; if (!v || !v[kind]) return;
+    const v = VOICES[type === 'settler' ? 'keeper' : type]; if (!v || !v[kind]) return;
     const p3 = place3d(pos, type === 'maw' ? 60 : 30); if (!p3) return;
     const dest = out(p3.vol, p3.pan, kind === 'die' ? 0.3 : 0.15);
     v[kind]({ dest, pan: p3.pan });

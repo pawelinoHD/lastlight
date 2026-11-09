@@ -151,6 +151,7 @@
     { k: 'sunwell', n: 'Sunblessed', d: 'Receive a Sunwell blessing', xp: 25, p: g => [S(g).blessings || 0, 1] },
     { k: 'anvil', n: 'Mended', d: 'Repair a tool at an Ember Anvil', xp: 25, p: g => [S(g).repairs || 0, 1] },
     { k: 'bestiary', n: 'Bestiary', d: 'Defeat 10 different kinds of creature', xp: 150, p: g => [Object.keys(S(g).kills).length, 10] },
+    { k: 'villages', n: 'Good Neighbour', d: 'Visit 5 villages', xp: 80, p: g => [Object.keys(S(g).villages || {}).length, 5] },
     { k: 'disc', n: 'Naturalist', d: 'Discover 50 different items', xp: 100, p: g => [Object.keys(S(g).seen).length, 50] },
   ];
   P.checkFeats = (g) => {

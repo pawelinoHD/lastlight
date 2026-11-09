@@ -152,10 +152,20 @@
     [[101, 8], [22, 3]], [[159, 3], [57, 1]], [[102, 10], [118, 1]], [[158, 4], [53, 1]], [[113, 4], [114, 4]],
     [[19, 16], [76, 8]], [[106, 3], [150, 8]], [[70, 16], [74, 16]], [[103, 4], 'bp'], [[110, 4], [73, 16]],
   ];
+  const VTRADES = {
+    hollow: [[[150, 12], [57, 2]], [[6, 16], [65, 1]], [[151, 10], [74, 16]]],
+    frost: [[[111, 6], [118, 1]], [[16, 16], [77, 8]], [[113, 4], [154, 1]]],
+    cinder: [[[101, 10], [105, 1]], [[103, 3], [79, 1]], [[75, 16], [78, 8]]],
+    stilt: [[[19, 12], [76, 12]], [[159, 2], [151, 4]], [[115, 4], [152, 2]]],
+    shard: [[[106, 6], [53, 2]], [[72, 8], [106, 3]], [[74, 8], [32, 8]]],
+  };
+  const BIOME_VARIANT = { 2: 'hollow', 3: 'hollow', 4: 'frost', 5: 'cinder', 6: 'stilt', 7: 'shard' };
   G.tradeOffers = (stall) => {
     const rng = LL.mulberry32(LL.chash(stall.x * 7 + G.day, stall.z, G.seed));
     const pool = TRADES.filter(t => t[1] !== 'bp' || LL.BLUEPRINTS.some(([bp, o]) => !G.known[o]));
+    const extra = (VTRADES[stall.variant || BIOME_VARIANT[G.world.biomeAt(stall.x, stall.z)]] || []).slice();
     const out = [];
+    while (out.length < 2 && extra.length) out.push(extra.splice(rng() * extra.length | 0, 1)[0]);
     while (out.length < 5 && pool.length) out.push(pool.splice(rng() * pool.length | 0, 1)[0]);
     return out;
   };
@@ -205,8 +215,15 @@
     const gen = G.world.gen; if (!gen.ruinAt || G.dimKey !== 'wild') { G.nearNests = []; return; }
     const P = G.player, pcx = Math.floor(P.pos.x) >> 4, pcz = Math.floor(P.pos.z) >> 4;
     G.nearNests = [];
-    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
       const ru = gen.ruinAt(pcx + dx, pcz + dz); if (!ru) continue;
+      if (ru.type === 'village') {
+        const want = ru.R > 30 ? 4 : 3, have = G.mobs.filter(m => m.type === 'settler' && m.home && m.home.seed === ru.seed).length;
+        if (have < want && Math.hypot(P.pos.x - ru.cx, P.pos.z - ru.cz) < ru.R + 40) {
+          const x = Math.floor(ru.cx + (Math.random() - 0.5) * 8), z = Math.floor(ru.cz + (Math.random() - 0.5) * 8), y = G.world.surfaceAt(x, z) + 1;
+          if (y > 1) { const m = G.spawnMob('settler', x + 0.5, y, z + 0.5); m.home = { x: ru.cx, z: ru.cz, R: ru.R, seed: ru.seed }; m.variant = ru.variant; }
+        }
+      }
       if (ru.type === 'village' && G.world.getBlock(ru.stall.x, ru.stall.y, ru.stall.z) === B.TRADE_STALL) {
         const s = ru.stall;
         if (!G.mobs.some(m => m.type === 'keeper' && Math.abs(m.pos.x - s.x) < 14 && Math.abs(m.pos.z - s.z) < 14)) {
@@ -240,7 +257,51 @@
     Prog.addXP(G, KILL_XP[type] || 0, 'kill');
     Prog.bountyEvent(G, 'slay', type, 1);
   };
-  G.chestSlots = key => { if (!key) return null; const c = G.chests[G.dimKey] || (G.chests[G.dimKey] = {}); return c[key] || (c[key] = new Array(27).fill(null)); };
+  G.chestSlots = key => {
+    if (!key) return null;
+    const c = G.chests[G.dimKey] || (G.chests[G.dimKey] = {});
+    if (!c[key]) { c[key] = new Array(27).fill(null); fillGeneratedChest(c[key], key); }
+    return c[key];
+  };
+  // chests that came with the world (village storehouses, houses) start stocked; player-placed ones start empty
+  function fillGeneratedChest(slots, key) {
+    if (G.dimKey !== 'wild') return;
+    const [x, y, z] = key.split(',').map(Number), e = (G.edits.wild || {})[(x >> 4) + ',' + (z >> 4)];
+    if (e && e[(x & 15) + (z & 15) * 16 + y * 256] !== undefined) return;
+    const rng = LL.mulberry32(LL.chash(x, y * 31 + z, G.seed + 5));
+    const pool = [[112, 2, 6], [150, 2, 5], [100, 2, 6], [6, 4, 12], [4, 4, 12], [151, 2, 5], [114, 1, 3], [152, 1, 2], [26, 1, 3], [73, 4, 8], [103, 1, 2], [111, 1, 3], [101, 2, 5], [76, 3, 8]];
+    const n = 3 + (rng() * 4 | 0);
+    for (let i = 0; i < n; i++) { const [id, a, b] = pool[rng() * pool.length | 0]; let s = rng() * 27 | 0; while (slots[s]) s = (s + 1) % 27; slots[s] = { id, n: a + (rng() * (b - a + 1) | 0) }; }
+  }
+  const LORE = {
+    hollow: ['The sun used to rise warm. My grandmother swore it did.', 'Keep a lantern by your door. Gloomlings hate a lit doorway.', 'The Keeper trades fair if you bring berries.', 'Every fourth night the dark comes hungry. We bar the doors.', 'Plant sunroot near the lamps. It will not grow in the dark.'],
+    frost: ['Out here the cold kills more than the gloomlings do.', 'Stay near the fire, traveller. The wraiths walk at night.', 'A bramble coat is worth more than a blade in Pinefrost.', 'We melt rime ice for water. Nothing else stays clean.'],
+    cinder: ['Everything here burned once. We build with what is left.', 'The beetles are harmless until you crack them.', 'An anvil saves more lives than a sword.', 'Emberite still remembers the sun. Feel how warm it is.'],
+    stilt: ['Mind the water. The lurkers wait just under it.', 'Peat burns slow. Good for a cold kiln.', 'We built high because the bog keeps rising.', 'Spore sacs from the Gloam make crops leap. Worth the trip.'],
+    shard: ['The crystals hum at night. You get used to it.', 'Lumite holds the light the sun forgot.', 'Strangers come for the shards. Few stay.', 'A Ruin Compass will find you the old vaults. Copper and lumite, that is all it takes.'],
+    any: ['They say the Dawn Altar still stands, high up in Skyreach.', 'Gloom Rifts keep spitting shadows until someone breaks them.', 'Sunwells bless you once a day. Do not waste it on a sunny afternoon.'],
+  };
+  G.sleep = () => {
+    const P = G.player;
+    if (G.dimKey !== 'wild') { G.toast('You cannot sleep here. This place has no nights to skip.'); return; }
+    if (G.daylight > 0.45) { G.toast('You can only sleep at night.'); return; }
+    if (G.umbralActive) { G.toast('Too much dread in the air to sleep through an Umbral Night.', 'warn'); return; }
+    if (G.mobs.some(m => m.def.hostile && !m.dead && m.pos.distanceTo(P.pos) < 14)) { G.toast('You cannot rest with monsters nearby.', 'warn'); return; }
+    if (G.mp) { G.toast('Sleeping skips the night, so it only works in single-player.'); return; }
+    $('fade').style.opacity = 1; G.paused = true;
+    setTimeout(() => {
+      G.phase = 0.002; G.day++; onDawn();
+      P.warmth = 100; P.heal(8); G.stats.sleeps = (G.stats.sleeps || 0) + 1;
+      G.mobs.forEach(m => { if (m.def.hostile) m.remove(); });
+      G.paused = false; $('fade').style.opacity = 0; save();
+    }, 1400);
+  };
+  G.talkTo = (m) => {
+    const lines = (LORE[m.variant] || []).concat(LORE.any);
+    m._line = ((m._line ?? (Math.random() * lines.length | 0)) + 1) % lines.length;
+    G.toast('Settler: "' + lines[m._line] + '"', 'lore');
+    LL.sfx.mob('keeper', 'idle', m.pos);
+  };
   G.addCrop = (x, y, z) => { (G.crops[G.dimKey] || (G.crops[G.dimKey] = [])).push({ x, y, z, t: Prog.GROW }); };
   G.nearWard = (pos, r) => {
     const list = G.wards[G.dimKey]; if (!list) return null;
@@ -1035,6 +1096,12 @@
     if (G.dimKey === 'wild' && P.pos.y < G.stats.minY) G.stats.minY = Math.floor(P.pos.y);
     if (G.dimKey === 'wild' && G.biome != null && !G.stats.biomes[G.biome]) { G.stats.biomes[G.biome] = 1; if (G.biome >= 2) Prog.addXP(G, 15, 'biome'); }
     Prog.tickCrops(G, 1);
+    if (G.dimKey === 'wild' && G.world.gen.villagesNear) {
+      const vs = G.world.gen.villagesNear(Math.floor(P.pos.x) >> 4, Math.floor(P.pos.z) >> 4, 0);
+      const inV = vs.find(v => Math.hypot(P.pos.x - v.x, P.pos.z - v.z) < v.R + 4);
+      if (inV && G.lastVillage !== inV.seed) { G.lastVillage = inV.seed; LL.UI.banner(inV.name, { hollow: 'A farming village of the Meadowlands', frost: 'A hardy lodge town of the north', cinder: 'Smiths of the burned country', stilt: 'Homes raised above the bog', shard: 'Keepers of the crystal fields' }[inV.variant]); G.stats.villages = G.stats.villages || {}; if (!G.stats.villages[inV.seed]) { G.stats.villages[inV.seed] = 1; Prog.addXP(G, 25, 'village'); } }
+      else if (!inV) G.lastVillage = null;
+    }
     structureTick(3);
     riftSpawns();
     Prog.checkFeats(G);
@@ -1049,12 +1116,12 @@
     if (!t) return LL.UI.compass(null);
     const dx = t.x + 0.5 - P.pos.x, dz = t.z + 0.5 - P.pos.z;
     const ang = Math.atan2(dx, -dz) + P.yaw;
-    LL.UI.compass({ ang, dist: Math.round(Math.hypot(dx, dz)), dy: t.y - P.pos.y, name: LL.ruinTypeName[t.type] || 'Ruin' });
+    LL.UI.compass({ ang, dist: Math.round(Math.hypot(dx, dz)), dy: t.y - P.pos.y, name: t.name || LL.ruinTypeName[t.type] || 'Ruin' });
   }
 
   // ---------- main loop ----------
   let last = performance.now(), saveT = 0, prevBiome = -1, ambT = 0, lastHint = '', camDist = 0.5;
-  const HINTS = { [B.TRADE_STALL]: 'Trade Stall · right-click to trade', [B.EMBER_ANVIL]: 'Ember Anvil · right-click with a worn tool to repair it', [B.SUNWELL]: 'Sunwell · right-click for a blessing (once a day)', [B.GLOOM_RIFT]: 'Gloom Rift · break it with a pick to stop the gloomlings', [B.CACHE]: 'Ruin Cache · right-click to open', [B.CHEST]: 'Chest · right-click to open', [B.BENCH]: "Tinker's Bench · right-click to craft", [B.KILN]: 'Kiln · right-click to smelt', [B.HEARTH]: 'Hearth · right-click to make it your respawn point' };
+  const HINTS = { [B.TRADE_STALL]: 'Trade Stall · right-click to trade', [B.EMBER_ANVIL]: 'Ember Anvil · right-click with a worn tool to repair it', [B.SUNWELL]: 'Sunwell · right-click for a blessing (once a day)', [B.GLOOM_RIFT]: 'Gloom Rift · break it with a pick to stop the gloomlings', [B.CACHE]: 'Ruin Cache · right-click to open', [B.CHEST]: 'Chest · right-click to open', [B.BENCH]: "Tinker's Bench · right-click to craft", [B.KILN]: 'Kiln · right-click to smelt', [B.HEARTH]: 'Hearth · right-click to make it your respawn point', [B.BED]: 'Bed · right-click at night to sleep until dawn', [B.BED_X]: 'Bed · right-click at night to sleep until dawn' };
   function frame(now) {
     requestAnimationFrame(frame);
     let dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -1153,7 +1220,7 @@
     } else { hl.visible = false; crack.visible = false; }
     let hint = '';
     if (!P.dead && !LL.UI.panel) {
-      if (P.mobTarget && P.mobTarget.def.npc) hint = 'Lantern Keeper · right-click to trade';
+      if (P.mobTarget && P.mobTarget.def.npc) hint = P.mobTarget.type === 'settler' ? 'Settler · right-click to talk' : 'Lantern Keeper · right-click to trade';
       else if (t) hint = HINTS[t.id] || '';
     }
     if (hint !== lastHint) { lastHint = hint; $('hint').textContent = hint; }

@@ -347,9 +347,292 @@
         }
         if (id) bl[j] = id;
       }
-      if (ch._ruin) buildRuin(ch, ch._ruin);
+      if (ch._ruin && ch._ruin.type !== 'village') buildRuin(ch, ch._ruin);
+      for (const v of villagesNear(cx, cz, 14)) buildVillage(ch, planVillage(v));
+    };
+
+    // ---------- villages: multi-chunk settlements planned per 7×7-chunk region ----------
+    const VREG = 7, vCache = new Map(), pCache = new Map();
+    const VARIANT = { [BIO.MEADOW]: 'hollow', [BIO.ROSE]: 'hollow', [BIO.PINE]: 'frost', [BIO.ASH]: 'cinder', [BIO.MIRE]: 'stilt', [BIO.SHARD]: 'shard' };
+    LL.VILLAGE_NAME = { hollow: 'Hollowstead', frost: 'Frostholm', cinder: 'Cinderkeep', stilt: 'Stilthollow', shard: 'Shardrest' };
+    const villageInRegion = (rx, rz) => {
+      const k = rx * 65536 + rz;
+      if (vCache.has(k)) return vCache.get(k);
+      const r = LL.mulberry32(chash(rx, rz, seed + 991));
+      let v = null;
+      if (r() < 0.42) {
+        const acx = rx * VREG + 2 + (r() * 3 | 0), acz = rz * VREG + 2 + (r() * 3 | 0);
+        const x = acx * CS + 8, z = acz * CS + 8, col = column(x, z), variant = VARIANT[col.b];
+        const R = 24 + (r() * 14 | 0), sd = (r() * 1e9) | 0;
+        if (variant && col.h <= 74 && (variant === 'stilt' || col.h > SEA + 1)) v = { acx, acz, x, z, h: col.h, variant, R, seed: sd, name: LL.VILLAGE_NAME[variant] };
+      }
+      if (vCache.size > 5000) vCache.clear();
+      vCache.set(k, v); return v;
+    };
+    const villagesNear = this.villagesNear = (cx, cz, pad = 26) => {
+      const rx = Math.floor(cx / VREG), rz = Math.floor(cz / VREG), out = [];
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+        const v = villageInRegion(rx + dx, rz + dz);
+        if (v && Math.abs(cx * CS + 8 - v.x) < v.R + pad && Math.abs(cz * CS + 8 - v.z) < v.R + pad) out.push(v);
+      }
+      return out;
+    };
+    const KINDS = { hollow: ['house', 'house', 'big', 'farm', 'farm', 'tower', 'store'], frost: ['house', 'house', 'big', 'store', 'tower', 'yard'], cinder: ['house', 'big', 'smithy', 'smithy', 'tower', 'store'], stilt: ['house', 'house', 'big', 'house', 'store'], shard: ['house', 'big', 'farm', 'tower', 'house', 'store'] };
+    const planVillage = this.planVillage = (v) => {
+      if (pCache.has(v.seed)) return pCache.get(v.seed);
+      const r = LL.mulberry32(v.seed), V = v.variant;
+      const P = { v, roads: [], blds: [], lamps: [], base: V === 'stilt' ? Math.max(v.h, SEA) + 2 : v.h };
+      const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (let i = 3; i > 0; i--) { const j = r() * (i + 1) | 0; const t = dirs[i]; dirs[i] = dirs[j]; dirs[j] = t; }
+      const taken = [[v.x - 5, v.z - 5, v.x + 5, v.z + 5]];
+      const free = (x0, z0, x1, z1) => taken.every(t => x1 < t[0] - 1 || x0 > t[2] + 1 || z1 < t[1] - 1 || z0 > t[3] + 1);
+      const nRoads = 2 + (r() * 3 | 0);
+      for (let i = 0; i < nRoads; i++) {
+        const [dx, dz] = dirs[i], L = v.R - (r() * 6 | 0);
+        P.roads.push({ dx, dz, L });
+        taken.push([Math.min(v.x, v.x + dx * L) - 1, Math.min(v.z, v.z + dz * L) - 1, Math.max(v.x, v.x + dx * L) + 1, Math.max(v.z, v.z + dz * L) + 1]);
+      }
+      let first = true;
+      for (let pass = 0; pass < 2; pass++) for (const rd of P.roads) {
+        if (pass === 1 && P.blds.length >= 9) break;
+        let side = r() < 0.5 ? 1 : -1;
+        const qx = -rd.dz, qz = rd.dx, along = rd.dx !== 0;
+        for (let t = 8 + pass * 4; t < rd.L - 2; t += 8 + (r() * 4 | 0)) {
+          for (const sd of [side, -side]) {
+            if (sd !== side && r() < 0.4) continue;
+            const kind = first ? 'house' : KINDS[V][r() * KINDS[V].length | 0];
+            const w = (kind === 'house' || kind === 'tower') ? 5 : 7, d = kind === 'store' ? 7 : 5;
+            const W = along ? w : d, D = along ? d : w;
+            const off = (along ? D : W) / 2 + 2.5 + pass * 2;
+            const cx = Math.round(v.x + rd.dx * t + qx * sd * off), cz = Math.round(v.z + rd.dz * t + qz * sd * off);
+            const x0 = cx - (W >> 1), z0 = cz - (D >> 1), x1 = x0 + W - 1, z1 = z0 + D - 1;
+            if (!free(x0, z0, x1, z1)) continue;
+            const g = column(cx, cz).h;
+            if (V !== 'stilt' && (g <= SEA || Math.abs(g - v.h) > 10)) continue;
+            taken.push([x0, z0, x1, z1]);
+            const fl = V === 'stilt' ? Math.max(g, SEA) + 2 : g;
+            const b = { kind, x0, z0, x1, z1, g, fl, door: { x: -qx * sd, z: -qz * sd }, seed: (r() * 1e9) | 0, variant: V };
+            if (first) { b.elder = true; P.cache = { x: x0 + 1, y: fl + 1, z: z0 + 1 }; first = false; }
+            P.blds.push(b);
+          }
+          side = -side;
+        }
+        if (pass === 0) for (let t = 7; t < rd.L; t += 8) {
+          const s2 = ((t / 8) | 0) % 2 ? 1 : -1, lx = v.x + rd.dx * t + qx * s2 * 2, lz = v.z + rd.dz * t + qz * s2 * 2;
+          if (P.blds.every(b => lx < b.x0 - 1 || lx > b.x1 + 1 || lz < b.z0 - 1 || lz > b.z1 + 1)) P.lamps.push({ x: lx, z: lz });
+        }
+      }
+      P.stall = { x: v.x + 3, y: P.base + 1, z: v.z - 3, variant: V };
+      if (!P.cache) P.cache = { x: v.x - 3, y: P.base + 1, z: v.z + 3 };
+      if (pCache.size > 400) pCache.clear();
+      pCache.set(v.seed, P);
+      return P;
+    };
+    const MAT = {
+      hollow: { wall: B.DRIFT_PLANKS, wall2: B.ROSE_PLANKS, log: B.DRIFT_LOG, roof: B.THATCH, roofTop: B.THATCH, path: B.MOSSY_COBBLE, path2: B.COBBLE, found: B.COBBLE, lamp: B.LANTERN, floor: B.DRIFT_PLANKS },
+      frost: { wall: B.FROST_PLANKS, wall2: B.ICE_BRICKS, log: B.FROST_LOG, roof: B.FROST_PLANKS, roofTop: B.SNOW, path: B.COBBLE, path2: B.SNOW, found: B.COBBLE, lamp: B.LANTERN, floor: B.FROST_PLANKS },
+      cinder: { wall: B.BASALT, wall2: B.KILN_BRICKS, log: B.CHARRED_LOG, roof: B.BASALT, roofTop: B.BASALT, path: B.BASALT, path2: B.ASH, found: B.BASALT, lamp: B.LANTERN, floor: B.KILN_BRICKS },
+      stilt: { wall: B.DRIFT_PLANKS, wall2: B.MUD_BRICKS, log: B.DRIFT_LOG, roof: B.THATCH, roofTop: B.THATCH, path: B.DRIFT_PLANKS, path2: B.DRIFT_PLANKS, found: B.DRIFT_LOG, lamp: B.LANTERN, floor: B.DRIFT_PLANKS },
+      shard: { wall: B.SLATE_BRICKS, wall2: B.COBBLE, log: B.FROST_LOG, roof: B.SLATE_BRICKS, roofTop: B.SLATE_BRICKS, path: B.SLATE_BRICKS, path2: B.MOSSY_COBBLE, found: B.SLATE_BRICKS, lamp: B.LUMITE_LAMP, floor: B.DRIFT_PLANKS },
+    };
+    // ---------- furniture for village interiors ----------
+    const furnish = (b, k, ix0, ix1, iz0, iz1, dx, dz, midx, midz, fl, Hh, r, set) => {
+      const V = b.variant;
+      const cells = [];
+      for (let z = iz0; z <= iz1; z++) for (let x = ix0; x <= ix1; x++) {
+        if (b.elder && x === ix0 && z === iz0) continue;
+        if (Math.abs(x - dx) + Math.abs(z - dz) <= 1) continue;
+        if (k === 'big' && x === midx) continue;
+        cells.push([x, z]);
+      }
+      const corner = ([x, z]) => (x === ix0 || x === ix1) && (z === iz0 || z === iz1);
+      const edge = ([x, z]) => x === ix0 || x === ix1 || z === iz0 || z === iz1;
+      const take = (pred) => { const i = cells.findIndex(pred || (() => true)); return i < 0 ? null : cells.splice(i, 1)[0]; };
+      const put = (id, pred, y = fl + 1) => { const c = take(pred); if (c) set(c[0], y, c[1], id); return c; };
+      const bed = (pred) => { const c = take(pred); if (!c) return; set(c[0], fl + 1, c[1], c[1] === iz0 || (c[0] !== ix0 && c[1] !== iz1) ? B.BED : B.BED_X); };
+      const next = c => ([x, z]) => Math.abs(x - c[0]) + Math.abs(z - c[1]) === 1;
+      const lamp = V === 'shard' ? B.LUMITE_LAMP : B.HANGING_LANTERN;
+      const extras = [B.BOOKSHELF, B.BARREL, B.POTTED_PLANT, B.CHEST, B.COOKPOT, B.CRATE];
+      if (k === 'store') {
+        set(midx, fl + Hh, midz, B.HANGING_LANTERN);
+        let i = 0;
+        for (const c of cells.filter(edge)) { const id = [B.CRATE, B.BARREL, B.CHEST, B.CRATE, B.BARREL][i++ % 5]; set(c[0], fl + 1, c[1], id); if (id === B.CRATE && r() < 0.6) set(c[0], fl + 2, c[1], r() < 0.5 ? B.CRATE : B.BARREL); }
+        return;
+      }
+      if (k === 'big') {
+        const lz = midz;
+        set(((b.x0 + midx) >> 1), fl + Hh, lz, B.HANGING_LANTERN); set(((midx + b.x1) >> 1), fl + Hh, lz, B.HANGING_LANTERN);
+        bed(c => corner(c) && c[0] < midx); bed(c => corner(c) && c[0] < midx);
+        put(B.RUG, c => c[0] < midx && !corner(c));
+        const t = put(B.TABLE, c => c[0] > midx && !corner(c) && edge(c)) || put(B.TABLE, c => c[0] > midx);
+        if (t) { put(B.STOOL, next(t)); put(B.STOOL, next(t)); if (r() < 0.7) set(t[0], fl + 2, t[1], B.CANDLES); }
+        put(B.BOOKSHELF, c => c[0] > midx && corner(c)); put(B.COOKPOT, c => c[0] > midx && corner(c));
+        put(B.BARREL, c => corner(c)); put(B.CHEST);
+        while (cells.length) { const c = cells.shift(); if (r() < 0.5) set(c[0], fl + 1, c[1], extras[r() * extras.length | 0]); }
+        return;
+      }
+      // cottage
+      set(midx, fl + Hh, midz, lamp);
+      bed(c => corner(c) && (c[1] === iz0 || c[0] === ix0));
+      const t = put(B.TABLE, corner);
+      if (t) { put(B.STOOL, next(t)); if (r() < 0.75) set(t[0], fl + 2, t[1], B.CANDLES); }
+      put(extras[r() * extras.length | 0], corner);
+      if (V === 'shard') put(B.LUMITE_LAMP, corner);
+      put(B.RUG, c => !edge(c));
+      if (cells.length && r() < 0.6) put(r() < 0.5 ? B.POTTED_PLANT : B.BARREL, edge);
+    };
+    const buildVillage = (ch, P) => {
+      const v = P.v, V = v.variant, M = MAT[V], bl = ch.blocks, ox = ch.cx * CS, oz = ch.cz * CS;
+      if (v.x + v.R + 14 < ox || v.x - v.R - 14 > ox + 15 || v.z + v.R + 14 < oz || v.z - v.R - 14 > oz + 15) return;
+      const inC = (x, z) => x >= ox && x < ox + CS && z >= oz && z < oz + CS;
+      const set = (x, y, z, id) => { if (inC(x, z) && y >= 1 && y < H - 1) bl[(x - ox) + (z - oz) * CS + y * CA] = id; };
+      const get = (x, y, z) => (inC(x, z) && y >= 0 && y < H) ? bl[(x - ox) + (z - oz) * CS + y * CA] : 0;
+      const pick = (x, z, a, b2) => (chash(x, z, v.seed) & 7) < 5 ? a : b2;
+      const clearUp = (x, y0, z, n) => { for (let y = y0; y < y0 + n; y++) { const id = get(x, y, z); if (id && (RT[id] === 3 || LEAFY[id] || id === B.DRIFT_LOG || id === B.ROSE_LOG || id === B.FROST_LOG || id === B.CHARRED_LOG || id === B.LUMITE || id === B.SHARDSTONE || id === B.BASALT)) set(x, y, z, 0); } };
+      // clear a glade: no trees inside the village radius
+      const TREEISH = id => LEAFY[id] || id === B.DRIFT_LOG || id === B.ROSE_LOG || id === B.FROST_LOG || id === B.CHARRED_LOG || id === B.AUR_LOG;
+      for (let z = oz; z < oz + CS; z++) for (let x = ox; x < ox + CS; x++) {
+        if (Math.hypot(x - v.x, z - v.z) > v.R + 4) continue;
+        const h = column(x, z).h;
+        for (let y = h + 1; y < Math.min(H - 1, h + 18); y++) if (TREEISH(get(x, y, z))) set(x, y, z, 0);
+      }
+      // roads
+      const BW = SEA + 1;
+      for (const rd of P.roads) {
+        const qx = -rd.dz, qz = rd.dx;
+        for (let t = 4; t <= rd.L; t++) for (let w = -1; w <= 1; w++) {
+          const x = v.x + rd.dx * t + qx * w, z = v.z + rd.dz * t + qz * w;
+          if (!inC(x, z)) continue;
+          const h = column(x, z).h;
+          if (V === 'stilt') {
+            const y = Math.max(BW, h + 1);
+            set(x, y, z, M.path); clearUp(x, y + 1, z, 4);
+            if (t % 4 === 0 && w !== 0) for (let yy = y - 1; yy > h; yy--) set(x, yy, z, M.log);
+            continue;
+          }
+          if (h < SEA) { set(x, SEA, z, B.DRIFT_PLANKS); clearUp(x, SEA + 1, z, 3); continue; }
+          set(x, h, z, pick(x, z, M.path, M.path2)); clearUp(x, h + 1, z, 5);
+        }
+      }
+      // plaza
+      const pb = P.base;
+      for (let dz = -5; dz <= 5; dz++) for (let dx = -5; dx <= 5; dx++) {
+        const x = v.x + dx, z = v.z + dz; if (!inC(x, z)) continue;
+        if (V === 'stilt') {
+          set(x, pb, z, B.DRIFT_PLANKS);
+          if ((Math.abs(dx) === 5 || dx === 0) && (Math.abs(dz) === 5 || dz === 0)) for (let y = pb - 1; y > column(x, z).h; y--) set(x, y, z, M.log);
+        } else {
+          for (let y = pb - 4; y < pb; y++) if (!SOLID[get(x, y, z)] || RT[get(x, y, z)] === 4) set(x, y, z, M.found);
+          set(x, pb, z, Math.abs(dx) === 5 || Math.abs(dz) === 5 ? M.found : pick(x, z, M.path, M.path2));
+        }
+        for (let y = pb + 1; y <= pb + 9; y++) set(x, y, z, 0);
+      }
+      const cx0 = v.x, cz0 = v.z;
+      if (V === 'frost') { for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) set(cx0 + dx, pb + 1, cz0 + dz, B.COBBLE); set(cx0, pb + 1, cz0, B.HEARTH); }
+      else if (V === 'cinder') { set(cx0, pb + 1, cz0, B.KILN); set(cx0 + 1, pb + 1, cz0, B.EMBER_ANVIL); set(cx0 - 1, pb + 1, cz0, B.CINDER_ORE); for (const [dx, dz] of [[-2, -2], [2, 2]]) { for (let y = pb + 1; y <= pb + 3; y++) set(cx0 + dx, y, cz0 + dz, B.BASALT); set(cx0 + dx, pb + 4, cz0 + dz, B.LANTERN); } }
+      else if (V === 'stilt') { for (let y = pb + 1; y <= pb + 4; y++) set(cx0, y, cz0, B.DRIFT_LOG); set(cx0, pb + 5, cz0, B.LANTERN); for (const [dx, dz] of [[2, 0], [-2, 0], [0, 2], [0, -2]]) set(cx0 + dx, pb + 1, cz0 + dz, B.GLOWCAP); }
+      else {
+        for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const c = !dx && !dz; set(cx0 + dx, pb, cz0 + dz, c ? B.WATER : M.path2 === B.COBBLE ? B.MOSSY_COBBLE : M.found); if (!c) set(cx0 + dx, pb + 1, cz0 + dz, B.MOSSY_COBBLE); }
+        set(cx0, pb - 1, cz0, B.WATER); set(cx0, pb - 2, cz0, B.WATER);
+        for (const dx of [-1, 1]) for (let y = pb + 2; y <= pb + 3; y++) set(cx0 + dx, y, cz0, M.log);
+        for (let dx = -1; dx <= 1; dx++) set(cx0 + dx, pb + 4, cz0, M.roof);
+        if (V === 'shard') { set(cx0 - 2, pb + 1, cz0 - 2, B.LUMITE); set(cx0 + 2, pb + 1, cz0 + 2, B.LUMITE); }
+      }
+      // trade stall
+      const S = P.stall;
+      set(S.x - 1, S.y, S.z, M.floor); set(S.x, S.y, S.z, B.TRADE_STALL); set(S.x + 1, S.y, S.z, M.floor);
+      for (const dx of [-1, 1]) for (let y = S.y + 1; y <= S.y + 2; y++) set(S.x + dx, y, S.z, M.log);
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -2; dx <= 2; dx++) set(S.x + dx, S.y + 3, S.z + dz, M.roof);
+      // lamps
+      for (const L of P.lamps) {
+        if (!inC(L.x, L.z)) continue;
+        const h = V === 'stilt' ? Math.max(BW, column(L.x, L.z).h + 1) : Math.max(column(L.x, L.z).h, SEA);
+        if (V === 'stilt') { set(L.x, h, L.z, M.path); set(L.x, h + 1, L.z, M.log); set(L.x, h + 2, L.z, M.lamp); continue; }
+        set(L.x, h + 1, L.z, M.found); set(L.x, h + 2, L.z, M.log); set(L.x, h + 3, L.z, M.log); set(L.x, h + 4, L.z, M.lamp);
+      }
+      // buildings
+      for (const b of P.blds) {
+        if (b.x1 + 2 < ox || b.x0 - 2 > ox + 15 || b.z1 + 2 < oz || b.z0 - 2 > oz + 15) continue;
+        const r = LL.mulberry32(b.seed), fl = b.fl, k = b.kind;
+        const Hh = k === 'tower' ? 9 : (k === 'big' || k === 'store') ? 4 : 3;
+        for (let z = b.z0 - 1; z <= b.z1 + 1; z++) for (let x = b.x0 - 1; x <= b.x1 + 1; x++) for (let y = fl + 1; y <= fl + Hh + 6; y++) set(x, y, z, 0);
+        for (let z = b.z0; z <= b.z1; z++) for (let x = b.x0; x <= b.x1; x++) {
+          if (V === 'stilt') { const corner = (x === b.x0 || x === b.x1) && (z === b.z0 || z === b.z1); if (corner) for (let y = fl - 1; y > b.g - 2 && y > 0; y--) set(x, y, z, M.log); }
+          else for (let y = fl - 1; y >= fl - 10; y--) { const id = get(x, y, z); if (SOLID[id] && RT[id] !== 4) break; set(x, y, z, M.found); }
+          set(x, fl, z, (k === 'farm') ? ((x === b.x0 || x === b.x1 || z === b.z0 || z === b.z1) ? M.log : B.LOAM) : M.floor);
+        }
+        const midx = (b.x0 + b.x1) >> 1, midz = (b.z0 + b.z1) >> 1;
+        const dx = b.door.x > 0 ? b.x1 : b.door.x < 0 ? b.x0 : midx, dz = b.door.z > 0 ? b.z1 : b.door.z < 0 ? b.z0 : midz;
+        if (k === 'farm') {
+          const longX = b.x1 - b.x0 >= b.z1 - b.z0;
+          for (let z = b.z0 + 1; z < b.z1; z++) for (let x = b.x0 + 1; x < b.x1; x++) {
+            if (longX ? z === midz : x === midx) { set(x, fl, z, B.WATER); continue; }
+            set(x, fl + 1, z, r() < 0.55 ? B.CROP2 : B.CROP1);
+          }
+          continue;
+        }
+        if (k === 'yard') {
+          for (let z = b.z0; z <= b.z1; z++) for (let x = b.x0; x <= b.x1; x++) if (x === b.x0 || x === b.x1 || z === b.z0 || z === b.z1) set(x, fl + 1, z, B.ICE_BRICKS);
+          set(dx, fl + 1, dz, 0);
+          set(b.x0 + 1, fl + 1, b.z0 + 1, B.CHEST); set(b.x1 - 1, fl + 1, b.z0 + 1, B.CHEST); set(b.x0 + 1, fl + 1, b.z1 - 1, B.ICE); set(b.x0 + 2, fl + 1, b.z1 - 1, B.SNOW); set(b.x1 - 1, fl + 1, b.z1 - 1, B.LANTERN);
+          continue;
+        }
+        if (k === 'smithy') {
+          for (const [x, z] of [[b.x0, b.z0], [b.x1, b.z0], [b.x0, b.z1], [b.x1, b.z1]]) for (let y = fl + 1; y <= fl + 3; y++) set(x, y, z, M.wall);
+          for (let z = b.z0; z <= b.z1; z++) for (let x = b.x0; x <= b.x1; x++) set(x, fl + 4, z, B.KILN_BRICKS);
+          set(midx, fl + 1, midz, B.EMBER_ANVIL); set(b.x0 + 1, fl + 1, b.z0 + 1, B.KILN); set(b.x1 - 1, fl + 1, b.z1 - 1, B.CINDER_ORE); set(b.x1 - 1, fl + 2, b.z1 - 1, B.CINDER_ORE); set(b.x1 - 1, fl + 1, b.z0 + 1, B.LANTERN);
+          continue;
+        }
+        // walls
+        for (let z = b.z0; z <= b.z1; z++) for (let x = b.x0; x <= b.x1; x++) {
+          const edge = x === b.x0 || x === b.x1 || z === b.z0 || z === b.z1; if (!edge) continue;
+          const corner = (x === b.x0 || x === b.x1) && (z === b.z0 || z === b.z1);
+          for (let y = fl + 1; y <= fl + Hh; y++) {
+            if (corner) { set(x, y, z, M.log); continue; }
+            const win = (x === midx || z === midz) && ((k === 'tower') ? (y === fl + 3 || y === fl + 7) : y === fl + 2);
+            set(x, y, z, win ? B.GLASS : (r() < 0.18 ? M.wall2 : M.wall));
+          }
+        }
+        set(dx, fl + 1, dz, 0); set(dx, fl + 2, dz, 0);
+        const ox2 = dx + b.door.x, oz2 = dz + b.door.z;
+        if (V === 'stilt') { set(ox2, fl, oz2, M.floor); set(ox2 + b.door.x, Math.max(BW, b.g + 1), oz2 + b.door.z, M.floor); }
+        else { set(ox2, fl, oz2, M.path); for (let y = fl + 1; y <= fl + 3; y++) set(ox2, y, oz2, 0); }
+        // roof
+        const top = fl + Hh + 1;
+        if (V === 'cinder') {
+          for (let z = b.z0; z <= b.z1; z++) for (let x = b.x0; x <= b.x1; x++) { set(x, top, z, M.roof); if ((x === b.x0 || x === b.x1 || z === b.z0 || z === b.z1) && ((x + z) & 1)) set(x, top + 1, z, M.wall2); }
+        } else if (k === 'tower') {
+          for (let z = b.z0; z <= b.z1; z++) for (let x = b.x0; x <= b.x1; x++) { set(x, top - 1, z, M.floor); if ((x === b.x0 || x === b.x1 || z === b.z0 || z === b.z1) && ((x + z) & 1)) set(x, top, z, M.wall); }
+          set(b.x0, top, b.z0, M.lamp);
+        } else {
+          for (let i = 0; ; i++) {
+            const a0 = b.x0 - 1 + i, a1 = b.x1 + 1 - i, c0 = b.z0 - 1 + i, c1 = b.z1 + 1 - i;
+            if (a0 > a1 || c0 > c1) break;
+            const last = a0 + 1 >= a1 || c0 + 1 >= c1;
+            for (let z = c0; z <= c1; z++) for (let x = a0; x <= a1; x++) set(x, top + i, z, last ? M.roofTop : M.roof);
+            if (V === 'frost') for (let z = c0; z <= c1; z++) for (let x = a0; x <= a1; x++) if (x === a0 || x === a1 || z === c0 || z === c1) set(x, top + i + 1, z, B.SNOW);
+          }
+          if (V === 'shard') { set(b.x0, top, b.z0, B.LUMITE_LAMP); set(b.x1, top, b.z1, B.LUMITE_LAMP); }
+          if (V === 'frost') { for (let y = fl + 1; y <= top + 3; y++) set(b.x1, y, b.z1, B.COBBLE); }
+        }
+        // interior
+        if (k === 'tower') {
+          const ring = [[1, 1], [2, 1], [3, 1], [3, 2], [3, 3], [2, 3], [1, 3], [1, 2]];
+          for (let i = 0; i < Hh - 1; i++) { const [rx, rz] = ring[i % 8]; set(b.x0 + rx, fl + 1 + i, b.z0 + rz, M.wall); }
+          const [lx, lz] = ring[(Hh - 2) % 8]; set(b.x0 + lx, top - 1, b.z0 + lz, M.wall);
+          const [hx, hz] = ring[(Hh - 1) % 8]; set(b.x0 + hx, top - 1, b.z0 + hz, 0); set(b.x0 + 2, top - 1, b.z0 + 2, 0);
+          continue;
+        }
+        const ix0 = b.x0 + 1, ix1 = b.x1 - 1, iz0 = b.z0 + 1, iz1 = b.z1 - 1;
+        if (k === 'big') { const wx = midx; for (let z = b.z0 + 1; z < b.z1; z++) if (z !== midz) for (let y = fl + 1; y <= fl + Hh; y++) set(wx, y, z, M.wall); }
+        furnish(b, k, ix0, ix1, iz0, iz1, dx, dz, midx, midz, fl, Hh, r, set);
+      }
+      if (P.cache) set(P.cache.x, P.cache.y, P.cache.z, B.CACHE);
     };
     this.ruinAt = function (cx, cz) {
+      const vs = villagesNear(cx, cz, 14);
+      for (const v of vs) if (v.acx === cx && v.acz === cz) { const P = planVillage(v); return { type: 'village', variant: v.variant, name: v.name, h: v.h, x: P.cache.x, y: P.cache.y, z: P.cache.z, seed: v.seed, stall: P.stall, cx: v.x, cz: v.z, R: v.R }; }
+      if (vs.length) return null;
       const r = ruinRng(cx, cz, seed);
       if (r() > 0.085) return null;
       const tr = r(), sd = (r() * 1e9) | 0;
@@ -362,7 +645,7 @@
       else if (bio === BIO.PINE && tr < 0.4) type = 'caravan';
       else {
         const t2 = (tr * 7.31) % 1;
-        type = t2 < 0.2 ? 'tower' : t2 < 0.35 ? 'vault' : t2 < 0.47 ? 'camp' : t2 < 0.65 ? ((bio === BIO.MEADOW || bio === BIO.ROSE || bio === BIO.SHARD) ? 'village' : 'tower') : t2 < 0.84 ? 'nest' : 'circle';
+        type = t2 < 0.2 ? 'tower' : t2 < 0.35 ? 'vault' : t2 < 0.47 ? 'camp' : t2 < 0.65 ? 'tower' : t2 < 0.84 ? 'nest' : 'circle';
       }
       if (type === 'bog') { const base = Math.max(h, SEA); return { type, h, base, y: base + 4, x: cx * CS + 9, z: cz * CS + 9, seed: sd }; }
       if (col.h <= SEA + 1) return null;
@@ -596,6 +879,27 @@
   }
 
   function newGroup() { return { pos: [], uv: [], lt: [], sh: [], idx: [] }; }
+  // shaped blocks (rt 5): small textured boxes lit by their own cell
+  function addShape(g, x, y, z, id, sky, blk) {
+    const boxes = LL.SHAPES[id]; if (!boxes) return;
+    const sl = sky / 15, bl = blk / 15, mn = [0, 0, 0], mx = [0, 0, 0];
+    for (const bx of boxes) {
+      mn[0] = bx.b[0] / 16; mn[1] = bx.b[1] / 16; mn[2] = bx.b[2] / 16; mx[0] = bx.b[3] / 16; mx[1] = bx.b[4] / 16; mx[2] = bx.b[5] / 16;
+      for (let d = 0; d < 6; d++) {
+        const F = FACES[d], tile = d === 2 ? bx.tt : d === 3 ? bx.tb : bx.ts, tcol = tile % 16, trow = Math.floor(tile / 16), base = g.pos.length / 3;
+        for (let c = 0; c < 4; c++) {
+          const u = (c === 1 || c === 2) ? 1 : 0, v = c >= 2 ? 1 : 0, p = [0, 0, 0];
+          p[F.a] = F.s > 0 ? mx[F.a] : mn[F.a]; p[F.U] = u ? mx[F.U] : mn[F.U]; p[F.V] = v ? mx[F.V] : mn[F.V];
+          g.pos.push(x + p[0], y + p[1], z + p[2]);
+          const tu = bx.fit ? u : p[F.U], tv = bx.fit ? v : p[F.V];
+          g.uv.push((tcol + 0.002 + tu * 0.996) / 16, 1 - (trow + 1 - (0.002 + tv * 0.996)) / 16);
+          g.lt.push(sl, bl); g.sh.push(SHADE[d]);
+        }
+        const t = F.flip ? [0, 2, 1, 0, 3, 2] : [0, 1, 2, 0, 2, 3];
+        for (let k = 0; k < 6; k++) g.idx.push(base + t[k]);
+      }
+    }
+  }
 
   function buildChunkMesh(world, ch) {
     const cx = ch.cx, cz = ch.cz;
@@ -658,6 +962,7 @@
         }
         continue;
       }
+      if (rt === 5) { addShape(G[1], lx, y, lz, id, rSky[ri], Math.max(rBlk[ri], EMIT[id])); continue; }
       const g = rt === 4 ? G[2] : rt === 2 ? G[1] : G[0];
       const em = EMIT[id];
       for (let d = 0; d < 6; d++) {
